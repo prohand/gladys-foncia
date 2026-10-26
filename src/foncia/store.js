@@ -22,6 +22,7 @@ export const DEFAULT_STORE_PATH = '/data/foncia-state.json';
 export function emptyAccountMemory() {
   return {
     documents: [], // ids of the documents already seen
+    documentsSince: null, // createdAt of the newest document seen: older ones are never new
     unseen: [], // ids of the documents not acknowledged yet (the counter)
     incidents: {}, // id -> last status seen
     reminded: [], // "<date>:<amount>" of the dues the payment_due trigger fired for

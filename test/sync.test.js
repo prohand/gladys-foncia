@@ -250,3 +250,34 @@ test('accounting read with nothing due: 0 to pay; accounting unreadable: unknown
   assert.equal(analyze({ summary: { balance: 0, due: null } }).snapshot.amountDue, 0);
   assert.equal(analyze({ summary: null }).snapshot.amountDue, null);
 });
+
+test('an old document listed for the first time is not new, a recent one is', () => {
+  const memory = emptyAccountMemory();
+  const doc = (id, createdAt) => ({ id, title: id, category: 'other', date: null, createdAt });
+  analyze({ memory, firstSync: true, documents: [doc('D1', '2026-10-01T10:00:00Z')] });
+  assert.equal(memory.documentsSince, '2026-10-01T10:00:00Z');
+
+  const { events, snapshot } = analyze({
+    memory,
+    documents: [
+      doc('D1', '2026-10-01T10:00:00Z'),
+      doc('OLD', '2025-03-01T10:00:00Z'), // a category read for the first time
+      doc('NEW', '2026-10-20T10:00:00Z'),
+    ],
+  });
+  assert.deepEqual(
+    events.map((event) => event.data.title),
+    ['NEW'],
+  );
+  assert.equal(snapshot.unseenDocuments, 1);
+});
+
+test('a memory from before the watermark only learns its documents', () => {
+  const memory = { ...emptyAccountMemory(), documentsSince: undefined };
+  const { events } = analyze({
+    memory,
+    documents: [{ id: 'D9', title: 'x', category: 'other', date: null, createdAt: '2026-10-25' }],
+  });
+  assert.deepEqual(events, []);
+  assert.equal(memory.documentsSince, '2026-10-25');
+});

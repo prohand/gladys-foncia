@@ -69,6 +69,23 @@ query getDashboardAccountingBalance($uuid: EncodedID!, $first: Int) {
   }
 }`;
 
+// The document categories the account has, each with its count and the date
+// of its latest document: the web app's "Documents" page, and the keys the
+// documents query takes as `customerPortalCategory`.
+export const DOCUMENT_CATEGORIES = `
+query getDocumentCategories($accountUuid: EncodedID!) {
+  account(uuid: $accountUuid) {
+    uuid
+    documentCategories {
+      key
+      documentStats {
+        count
+        lastCreatedAt
+      }
+    }
+  }
+}`;
+
 export const DOCUMENTS = `
 query getAccountDocuments($accountUuid: EncodedID!, $first: Int, $customerPortalCategory: CustomerPortalFileCategoryEnum!) {
   account(uuid: $accountUuid) {
@@ -142,11 +159,3 @@ export const TICKET_STATUSES = [
 
 // Account qualities (Account.quality).
 export const QUALITIES = { CO_OWNER: 'CO_OWNER', TENANT: 'TENANT', LANDLORD: 'LANDLORD' };
-
-// The document spaces (CustomerPortalFileCategoryEnum) each quality reads:
-// the customer's own documents, plus those of the building for a co-owner.
-export const DOCUMENT_SPACES = {
-  [QUALITIES.CO_OWNER]: ['CO_OWNER', 'BUILDING'],
-  [QUALITIES.TENANT]: ['TENANT'],
-  [QUALITIES.LANDLORD]: ['RENTAL_MANAGEMENT_MANDATE'],
-};

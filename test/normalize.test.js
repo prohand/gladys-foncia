@@ -121,6 +121,11 @@ test('documents are sorted into the trigger categories', () => {
   assert.equal(category('accountSituation'), DOCUMENT_CATEGORIES.STATEMENT);
   assert.equal(category('invoices'), DOCUMENT_CATEGORIES.INVOICE);
   assert.equal(category('insurance'), DOCUMENT_CATEGORIES.OTHER);
+  assert.equal(
+    normalizeDocument({ id: 'D' }, 'provisionCalls').category,
+    DOCUMENT_CATEGORIES.CALL_FOR_FUNDS,
+    'the category it was listed under',
+  );
   assert.deepEqual(
     normalizeDocument({
       id: 'D1',
@@ -128,7 +133,13 @@ test('documents are sorted into the trigger categories', () => {
       category: 'provisionCalls',
       createdAt: '2026-10-01T09:00:00Z',
     }),
-    { id: 'D1', title: 'Appel de fonds T4', category: 'call_for_funds', date: '2026-10-01' },
+    {
+      id: 'D1',
+      title: 'Appel de fonds T4',
+      category: 'call_for_funds',
+      date: '2026-10-01',
+      createdAt: '2026-10-01T09:00:00Z',
+    },
   );
 });
 

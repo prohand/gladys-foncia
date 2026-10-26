@@ -38,7 +38,12 @@ the notes of the version's GitHub Release.
 
 - Requests shown as "Traitée" or "Clôturée" on MyFoncia, or finished or
   cancelled, no longer count as open.
-- A document space MyFoncia refuses no longer hides the documents of the others.
+- Documents are read again: MyFoncia refused the query (HTTP 400). They are
+  now read per document category, like the web app does (the four most
+  recently fed categories at each sync); one category refused no longer hides
+  the others, and a refused query logs the reasons given by MyFoncia.
+- A document is "new" only when it is more recent than the newest one already
+  seen: an old document listed for the first time fires nothing.
 - Amounts are read in euros: MyFoncia sends cents, so the balance, the amount
   due and the last payment were 100 times too high.
 

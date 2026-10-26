@@ -190,8 +190,12 @@ export function normalizeAccounting(raw, today) {
   };
 }
 
-/** One `documents` node. */
-export function normalizeDocument(raw) {
+/**
+ * One `documents` node.
+ * @param {object} raw the node
+ * @param {string} [categoryKey] the category it was listed under, when the node has none
+ */
+export function normalizeDocument(raw, categoryKey) {
   if (!raw || typeof raw !== 'object' || !raw.id) {
     return null;
   }
@@ -200,8 +204,10 @@ export function normalizeDocument(raw) {
     id: String(raw.id),
     // The file name is what the web app shows: drop the extension.
     title: filename.replace(/\.[a-z0-9]{2,5}$/i, ''),
-    category: DOCUMENT_CATEGORY_MAP[raw.category] ?? DOCUMENT_CATEGORIES.OTHER,
+    category: DOCUMENT_CATEGORY_MAP[raw.category ?? categoryKey] ?? DOCUMENT_CATEGORIES.OTHER,
     date: toDate(raw.createdAt),
+    // Full timestamp: what tells a new document from an old one never listed.
+    createdAt: raw.createdAt ? String(raw.createdAt) : null,
   };
 }
 

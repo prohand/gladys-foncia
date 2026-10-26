@@ -80,22 +80,34 @@ export function analyzeAccount({
 
   // Documents: an id never seen is new, and counts as "not seen yet" until
   // the user acknowledges it (scene action or widget button).
+  // Only a few categories are read at each sync, so an old document can be
+  // listed for the first time long after it was published: it is new only
+  // when it is also more recent than the newest document already seen. A
+  // memory without that watermark (first sync, older version) only learns.
   if (documents) {
+    const learning = firstSync || memory.documentsSince === undefined;
+    const since = memory.documentsSince ?? '';
     const known = new Set(memory.documents);
-    const fresh = documents.filter((document) => !known.has(document.id));
+    const unknown = documents.filter((document) => !known.has(document.id));
+    const fresh = learning
+      ? []
+      : unknown.filter((document) => !document.createdAt || document.createdAt > since);
     const kind = { count: 0 };
     for (const document of fresh) {
       push(kind, newDocumentEvent(device, account, document));
-      if (!firstSync) {
-        memory.unseen.push(document.id);
-      }
+      memory.unseen.push(document.id);
     }
-    memory.documents = [...memory.documents, ...fresh.map((d) => d.id)].slice(
+    memory.documents = [...memory.documents, ...unknown.map((d) => d.id)].slice(
       -MAX_REMEMBERED_DOCUMENTS,
     );
-    // A document MyFoncia no longer lists is no longer "new".
-    const listed = new Set(documents.map((document) => document.id));
-    memory.unseen = memory.unseen.filter((id) => listed.has(id));
+    memory.documentsSince = documents.reduce(
+      (latest, document) =>
+        document.createdAt && document.createdAt > latest ? document.createdAt : latest,
+      memory.documentsSince ?? '',
+    );
+    // Bounded like the memory it comes from.
+    const remembered = new Set(memory.documents);
+    memory.unseen = memory.unseen.filter((id) => remembered.has(id));
   }
 
   // Incidents: new ones (unless they are born closed) and status changes.

@@ -37,7 +37,7 @@ import {
   ACCOUNTING,
   ACCOUNTS,
   DOCUMENTS,
-  DOCUMENT_SPACES,
+  DOCUMENT_CATEGORIES,
   GENERAL_ASSEMBLIES,
   QUALITIES,
   TICKETS,
@@ -53,7 +53,13 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 // How many of the latest entries each sync reads: enough to see what is new
 // between two syncs, few enough to stay a light client of Foncia's API.
-const PAGE_SIZE = { ACCOUNTS: 50, LINES: 20, DOCUMENTS: 20, TICKETS: 50 };
+const PAGE_SIZE = { ACCOUNTS: 50, LINES: 20, DOCUMENTS: 10, TICKETS: 50 };
+
+// Documents are read per category, like the web app does. A new document
+// lands in the category whose latest document is the most recent, so reading
+// the few most recent categories finds every new one without reading them all
+// at each sync.
+const RECENT_DOCUMENT_CATEGORIES = 4;
 
 /**
  * @param {object} options
@@ -85,7 +91,14 @@ export function createFonciaClient({
       throw new FonciaError(ERROR_CODES.RATE_LIMITED, `${what}: HTTP 429`);
     }
     if (!response.ok) {
-      throw new FonciaError(ERROR_CODES.API, `${what}: HTTP ${response.status}`);
+      // A GraphQL server answers a refused query with 400 and its reasons:
+      // they say what to fix, the status alone does not.
+      const reasons = await response
+        .json()
+        .then((body) => (body?.errors ?? []).map((error) => error?.message).filter(Boolean))
+        .catch(() => []);
+      const detail = reasons.length > 0 ? ` (${reasons.join('; ')})` : '';
+      throw new FonciaError(ERROR_CODES.API, `${what}: HTTP ${response.status}${detail}`);
     }
     try {
       return await response.json();
@@ -277,31 +290,41 @@ export function createFonciaClient({
       return normalizeAccounting(data.account?.accounting, today);
     },
 
-    /** The latest documents of every space the account can read, newest first. */
+    /** The latest documents of the most recently fed categories. */
     async getDocuments(account) {
-      const spaces = DOCUMENT_SPACES[account.quality] ?? DOCUMENT_SPACES[QUALITIES.CO_OWNER];
+      const data = await graphql(DOCUMENT_CATEGORIES, { accountUuid: account.id });
+      const categories = (data.account?.documentCategories ?? [])
+        .filter((category) => category?.key && category.documentStats?.count > 0)
+        .sort((a, b) =>
+          String(b.documentStats.lastCreatedAt ?? '').localeCompare(
+            String(a.documentStats.lastCreatedAt ?? ''),
+          ),
+        )
+        .slice(0, RECENT_DOCUMENT_CATEGORIES);
       const documents = new Map();
       let failure = null;
       let read = 0;
-      // A space this account cannot read (a co-owner without building
-      // documents) must not hide the others: only all of them failing is an
-      // error.
-      for (const space of spaces) {
+      // A category that cannot be read must not hide the others: only all of
+      // them failing is an error.
+      for (const { key } of categories) {
         try {
-          const data = await graphql(DOCUMENTS, {
+          const page = await graphql(DOCUMENTS, {
             accountUuid: account.id,
             first: PAGE_SIZE.DOCUMENTS,
-            customerPortalCategory: space,
+            customerPortalCategory: key,
           });
-          for (const document of normalizeList(data.account?.documents, normalizeDocument)) {
-            documents.set(document.id, document);
+          for (const node of nodesOf(page.account?.documents)) {
+            const document = normalizeDocument(node, key);
+            if (document) {
+              documents.set(document.id, document);
+            }
           }
           read += 1;
         } catch (err) {
           if (err.code === ERROR_CODES.NETWORK || err.code === ERROR_CODES.CREDENTIALS) {
             throw err;
           }
-          logger.warn(`Documents of the ${space} space unreadable: ${err.message}`);
+          logger.warn(`Documents of the ${key} category unreadable: ${err.message}`);
           failure = err;
         }
       }

@@ -40,10 +40,28 @@ const DATA = {
       },
     },
   }),
+  getDocumentCategories: () => ({
+    account: {
+      documentCategories: [
+        { key: 'invoices', documentStats: { count: 3, lastCreatedAt: '2026-09-01T10:00:00Z' } },
+        { key: 'insurance', documentStats: { count: 0, lastCreatedAt: null } },
+        {
+          key: 'provisionCalls',
+          documentStats: { count: 8, lastCreatedAt: '2026-10-01T10:00:00Z' },
+        },
+        {
+          key: 'generalAssembly',
+          documentStats: { count: 2, lastCreatedAt: '2026-06-01T10:00:00Z' },
+        },
+        { key: 'contract', documentStats: { count: 1, lastCreatedAt: '2025-01-01T10:00:00Z' } },
+        { key: 'deposit', documentStats: { count: 1, lastCreatedAt: '2024-01-01T10:00:00Z' } },
+      ],
+    },
+  }),
   getAccountDocuments: ({ customerPortalCategory }) => ({
     account: {
       documents: edges([
-        { id: `D-${customerPortalCategory}`, originalFilename: 'x.pdf', category: 'invoices' },
+        { id: `D-${customerPortalCategory}`, originalFilename: 'x.pdf', createdAt: '2026-10-01' },
         { id: 'D-shared', originalFilename: 'shared.pdf', category: 'generalAssembly' },
       ]),
     },
@@ -114,6 +132,9 @@ function fakeServer(options = {}) {
           errors: [{ message: 'nope', extensions: { code: 'UNAUTHENTICATED' } }],
         });
       }
+      if (state.graphql400) {
+        return json(400, { errors: [{ message: state.graphql400 }] });
+      }
       if (state.graphqlStatus) {
         return json(state.graphqlStatus, {});
       }
@@ -163,21 +184,25 @@ test('reads the accounting, the documents, the tickets and the general assemblie
   });
   const documents = await foncia.getDocuments(ACCOUNT);
   assert.deepEqual(
-    documents.map((d) => d.id),
-    ['D-CO_OWNER', 'D-shared', 'D-BUILDING'],
-    'both spaces of a co-owner, without duplicates',
+    documents.map((d) => [d.id, d.category]),
+    [
+      ['D-provisionCalls', 'call_for_funds'],
+      ['D-shared', 'meeting'],
+      ['D-invoices', 'invoice'],
+      ['D-generalAssembly', 'meeting'],
+      ['D-contract', 'other'],
+    ],
+    'the 4 most recent non-empty categories, without duplicates; the category listed under when the node has none',
   );
   assert.equal((await foncia.getIncidents(ACCOUNT))[0].status, 'open');
   assert.deepEqual(await foncia.getMeetings(ACCOUNT), [
     { id: 'G1', title: 'AGO', date: '2027-03-15' },
   ]);
   assert.deepEqual(await foncia.getMeetings({ ...ACCOUNT, quality: 'TENANT' }), []);
-  const spaces = server.state.operations
+  const categories = server.state.operations
     .filter((o) => o.operationName === 'getAccountDocuments')
     .map((o) => o.variables.customerPortalCategory);
-  assert.deepEqual(spaces, ['CO_OWNER', 'BUILDING']);
-  await foncia.getDocuments({ ...ACCOUNT, quality: 'TENANT' });
-  assert.equal(server.state.operations.at(-1).variables.customerPortalCategory, 'TENANT');
+  assert.deepEqual(categories, ['provisionCalls', 'invoices', 'generalAssembly', 'contract']);
 });
 
 test('the token is reused, then renewed with the refresh token', async () => {
@@ -257,14 +282,18 @@ test('the password and the tokens never reach an error message', async () => {
   assert.doesNotMatch(err.message, /good|at-1|st-me/);
 });
 
-test('a document space that cannot be read does not hide the others', async () => {
-  const foncia = client(fakeServer({ failingSpace: 'BUILDING' }));
+test('a document category that cannot be read does not hide the others', async () => {
+  const foncia = client(fakeServer({ failingSpace: 'invoices' }));
   assert.deepEqual(
     (await foncia.getDocuments(ACCOUNT)).map((d) => d.id),
-    ['D-CO_OWNER', 'D-shared'],
+    ['D-provisionCalls', 'D-shared', 'D-generalAssembly', 'D-contract'],
   );
-  const tenant = client(fakeServer({ failingSpace: 'TENANT' }));
-  await assert.rejects(tenant.getDocuments({ ...ACCOUNT, quality: 'TENANT' }), {
-    code: ERROR_CODES.API,
-  });
+});
+
+test('a refused query reports the reasons of the GraphQL server', async () => {
+  const err = await client(fakeServer({ graphql400: 'Value "X" does not exist in enum' }))
+    .getAccounts()
+    .catch((e) => e);
+  assert.equal(err.code, ERROR_CODES.API);
+  assert.match(err.message, /getBasicAccounts: HTTP 400 \(Value "X" does not exist in enum\)/);
 });
