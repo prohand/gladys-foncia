@@ -79,11 +79,13 @@ schicke mir eine Nachricht: Neuer Zahlungsaufruf: {{triggerEvent.data.title}}“
 
 ## Dashboard-Widget
 
-**Foncia-Konto**: Saldo, fälliger Betrag, offene Vorfälle und neue Dokumente
-(live), Verbindung und letzte Synchronisierung, nächste Fälligkeit und nächste
+**Foncia-Konto**: Saldo, fälliger Betrag (0 €, wenn nichts fällig ist), letzte
+Zahlung und neue Dokumente, Verbindung und letzte Synchronisierung, nächste Fälligkeit und nächste
 Versammlung, die fünf neuesten Dokumente und zwei Schaltflächen:
 **Synchronisieren** und **Als gesehen**. Wähle in seinen Einstellungen das
 anzuzeigende Konto (leer = das erste).
+
+Ein Strich (—) bedeutet, dass MyFoncia nicht gelesen werden konnte: Siehe die Logs der Integration.
 
 ## Datenschutz
 

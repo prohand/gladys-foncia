@@ -126,7 +126,7 @@ export function accountStates(gladys, snapshot) {
   const ids = accountIds(gladys, snapshot.account.id);
   const values = {
     [FEATURES.BALANCE]: snapshot.balance,
-    [FEATURES.AMOUNT_DUE]: snapshot.due?.amount ?? null,
+    [FEATURES.AMOUNT_DUE]: snapshot.amountDue,
     [FEATURES.DAYS_UNTIL_DUE]: snapshot.daysUntilDue,
     [FEATURES.OPEN_INCIDENTS]: snapshot.openIncidents,
     [FEATURES.UNSEEN_DOCUMENTS]: snapshot.unseenDocuments,

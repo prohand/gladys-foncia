@@ -42,14 +42,18 @@ const DOCUMENT_CATEGORY_MAP = {
   propertyRepairAccountingInvoices: DOCUMENT_CATEGORIES.INVOICE,
 };
 
-// Ticket.status (TicketStatusEnum) -> trigger status.
+// Ticket.status (TicketStatusEnum) -> trigger status. The web app shows
+// PROCESSED as "Traitée", in the same green as "Clôturée": the manager is
+// done with it, so it is no longer an open request.
 const TICKET_STATUS_MAP = {
   OPEN: INCIDENT_STATUSES.OPEN,
   WAITING_FOR_FIRST_CLIENT_RESPONSE: INCIDENT_STATUSES.OPEN,
   WORK_IN_PROGRESS: INCIDENT_STATUSES.IN_PROGRESS,
-  PROCESSED: INCIDENT_STATUSES.IN_PROGRESS,
+  PROCESSED: INCIDENT_STATUSES.CLOSED,
   FINISHED: INCIDENT_STATUSES.CLOSED,
   CLOSED: INCIDENT_STATUSES.CLOSED,
+  AUTO_CLOSED_NO_CLIENT_RESPONSE: INCIDENT_STATUSES.CLOSED,
+  AUTO_CLOSED_NO_MANAGER_ACTION: INCIDENT_STATUSES.CLOSED,
 };
 
 /** The nodes of a GraphQL connection (`{ edges: [{ node }] }`), or the list itself. */
@@ -143,8 +147,9 @@ export function normalizeAccount(raw) {
 }
 
 /**
- * The `accounting` of an account: the current balance, and the next amount
- * due — the earliest debit line whose due date is today or later.
+ * The `accounting` of an account: the current balance, the next amount due —
+ * the earliest debit line whose due date is today or later — and the last
+ * payment received — the latest credit line.
  *
  * @param {object} raw `account.accounting`
  * @param {string} today YYYY-MM-DD
@@ -160,9 +165,18 @@ export function normalizeAccounting(raw, today) {
     }))
     .filter((due) => due.date && due.date >= today && due.amount > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
+  const payments = lines
+    .filter((line) => line.amount?.__typename === 'Credit')
+    .map((line) => ({
+      amount: toAmount(line.amount),
+      date: toDate(line.valueDate ?? line.dueDate),
+    }))
+    .filter((payment) => payment.amount !== null && payment.date)
+    .sort((a, b) => b.date.localeCompare(a.date));
   return {
     balance: toAmount(raw?.currentBalance),
     due: dues[0] ?? null,
+    lastPayment: payments[0] ?? null,
   };
 }
 
@@ -194,7 +208,7 @@ export function normalizeTicket(raw) {
   return {
     id: String(raw.id),
     title: [number, topic].filter(Boolean).join(' ') || 'Ticket',
-    status: TICKET_STATUS_MAP[raw.status] ?? INCIDENT_STATUSES.OPEN,
+    status: ticketStatus(raw),
     date: toDate(raw.finishedAt ?? raw.createdAt),
   };
 }
@@ -216,6 +230,15 @@ export function normalizeList(list, normalize) {
   return nodesOf(list)
     .map(normalize)
     .filter((entry) => entry !== null);
+}
+
+// A finished or cancelled ticket is closed whatever its status says; an
+// unknown status is open only while nothing says it ended.
+function ticketStatus(raw) {
+  if (raw.finishedAt || raw.cancelledAt) {
+    return INCIDENT_STATUSES.CLOSED;
+  }
+  return TICKET_STATUS_MAP[String(raw.status ?? '').toUpperCase()] ?? INCIDENT_STATUSES.OPEN;
 }
 
 function toRole(quality) {

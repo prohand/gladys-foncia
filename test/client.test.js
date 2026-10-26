@@ -117,6 +117,9 @@ function fakeServer(options = {}) {
       if (state.graphqlStatus) {
         return json(state.graphqlStatus, {});
       }
+      if (state.failingSpace && variables.customerPortalCategory === state.failingSpace) {
+        return json(200, { errors: [{ message: 'not allowed' }], data: null });
+      }
       if (state.graphqlError) {
         return json(200, { errors: [{ message: state.graphqlError }], data: null });
       }
@@ -156,6 +159,7 @@ test('reads the accounting, the documents, the tickets and the general assemblie
   assert.deepEqual(await foncia.getSummary(ACCOUNT), {
     balance: -12.5,
     due: { amount: 450, date: '2026-11-01', label: null },
+    lastPayment: null,
   });
   const documents = await foncia.getDocuments(ACCOUNT);
   assert.deepEqual(
@@ -251,4 +255,16 @@ test('the password and the tokens never reach an error message', async () => {
     .catch((e) => e);
   assert.match(err.message, /getBasicAccounts: boom/);
   assert.doesNotMatch(err.message, /good|at-1|st-me/);
+});
+
+test('a document space that cannot be read does not hide the others', async () => {
+  const foncia = client(fakeServer({ failingSpace: 'BUILDING' }));
+  assert.deepEqual(
+    (await foncia.getDocuments(ACCOUNT)).map((d) => d.id),
+    ['D-CO_OWNER', 'D-shared'],
+  );
+  const tenant = client(fakeServer({ failingSpace: 'TENANT' }));
+  await assert.rejects(tenant.getDocuments({ ...ACCOUNT, quality: 'TENANT' }), {
+    code: ERROR_CODES.API,
+  });
 });

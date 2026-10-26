@@ -31,6 +31,7 @@ import {
   normalizeList,
   normalizeMeeting,
   normalizeTicket,
+  nodesOf,
 } from './normalize.js';
 import {
   ACCOUNTING,
@@ -280,15 +281,32 @@ export function createFonciaClient({
     async getDocuments(account) {
       const spaces = DOCUMENT_SPACES[account.quality] ?? DOCUMENT_SPACES[QUALITIES.CO_OWNER];
       const documents = new Map();
+      let failure = null;
+      let read = 0;
+      // A space this account cannot read (a co-owner without building
+      // documents) must not hide the others: only all of them failing is an
+      // error.
       for (const space of spaces) {
-        const data = await graphql(DOCUMENTS, {
-          accountUuid: account.id,
-          first: PAGE_SIZE.DOCUMENTS,
-          customerPortalCategory: space,
-        });
-        for (const document of normalizeList(data.account?.documents, normalizeDocument)) {
-          documents.set(document.id, document);
+        try {
+          const data = await graphql(DOCUMENTS, {
+            accountUuid: account.id,
+            first: PAGE_SIZE.DOCUMENTS,
+            customerPortalCategory: space,
+          });
+          for (const document of normalizeList(data.account?.documents, normalizeDocument)) {
+            documents.set(document.id, document);
+          }
+          read += 1;
+        } catch (err) {
+          if (err.code === ERROR_CODES.NETWORK || err.code === ERROR_CODES.CREDENTIALS) {
+            throw err;
+          }
+          logger.warn(`Documents of the ${space} space unreadable: ${err.message}`);
+          failure = err;
         }
+      }
+      if (read === 0 && failure) {
+        throw failure;
       }
       return [...documents.values()];
     },
@@ -300,7 +318,14 @@ export function createFonciaClient({
         first: PAGE_SIZE.TICKETS,
         status: TICKET_STATUSES,
       });
-      return normalizeList(data.tickets, normalizeTicket);
+      const tickets = normalizeList(data.tickets, normalizeTicket);
+      // MyFoncia's statuses are not documented: what it sent, for the logs.
+      logger.debug(
+        `Tickets: ${nodesOf(data.tickets)
+          .map((ticket) => `${ticket.status}${ticket.finishedAt ? ' (finished)' : ''}`)
+          .join(', ')}`,
+      );
+      return tickets;
     },
 
     /** The general assemblies to come: co-owners only. */

@@ -79,11 +79,13 @@ cuota**, enviarme un mensaje: Nueva derrama: {{triggerEvent.data.title}}»_.
 
 ## Widget del panel
 
-**Cuenta Foncia**: saldo, importe debido, incidencias abiertas y documentos
-nuevos (en directo), conexión y última sincronización, próximo vencimiento y
+**Cuenta Foncia**: saldo, importe debido (0 € si no se debe nada), último pago
+y documentos nuevos, conexión y última sincronización, próximo vencimiento y
 próxima junta, los cinco últimos documentos y dos botones: **Sincronizar** y
 **Marcar como visto**. En sus ajustes, elija la cuenta que se muestra (vacío = la
 primera).
+
+Un guion (—) significa que no se ha podido leer MyFoncia: consulte los registros de la integración.
 
 ## Privacidad
 

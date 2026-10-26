@@ -245,3 +245,8 @@ test('a list that could not be read leaves its figures unknown', () => {
   assert.equal(snapshot.openIncidents, null);
   assert.equal(snapshot.balance, null, 'no accounting read, no balance');
 });
+
+test('accounting read with nothing due: 0 to pay; accounting unreadable: unknown', () => {
+  assert.equal(analyze({ summary: { balance: 0, due: null } }).snapshot.amountDue, 0);
+  assert.equal(analyze({ summary: null }).snapshot.amountDue, null);
+});

@@ -141,17 +141,29 @@ test('the widget content is rendered exactly as sent, before and after a sync', 
   assert.deepEqual(validateWidgetContent(await getContent(gladys, service)), []);
 });
 
-test('the live tiles reference features the integration publishes', async () => {
-  const { gladys, service } = await setup();
+test('the tiles always show a value: 0 when nothing is due, a dash when unreadable', async () => {
+  const { gladys, client, service } = await setup();
+  client.data.summary = { balance: 0, due: null, lastPayment: { amount: 300, date: '2026-10-05' } };
   await service.sync();
-  const features = new Set(
-    buildAccountDevice(gladys, ACCOUNT).features.map((feature) => feature.external_id),
+  const tiles = (await getContent(gladys, service)).components.filter((c) => c.type === 'value');
+  assert.deepEqual(
+    tiles.map((t) => [t.label.en, t.value]),
+    [
+      ['Balance', 0],
+      ['Amount due', 0],
+      ['Last payment', 300],
+      ['New documents', 0],
+    ],
   );
-  const tiles = (await getContent(gladys, service)).components.filter((c) => c.device_feature);
-  assert.equal(tiles.length, 4);
-  for (const tile of tiles) {
-    assert.ok(features.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
+
+  client.fail('documents', ERROR_CODES.API);
+  client.fail('summary', ERROR_CODES.API);
+  await service.sync();
+  const content = await getContent(gladys, service);
+  assert.deepEqual(validateWidgetContent(content), []);
+  const values = content.components.filter((c) => c.type === 'value').map((t) => t.value);
+  assert.deepEqual(values, ['—', '—', '—', '—']);
+  assert.match(content.components.find((c) => c.type === 'text').text.en, /unreadable/);
 });
 
 test('every widget button is handled and answers a short toast in every language', async () => {

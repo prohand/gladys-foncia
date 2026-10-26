@@ -150,6 +150,9 @@ export function analyzeAccount({
       device,
       account,
       balance: summary?.balance ?? null,
+      // Accounting read and nothing due: 0 to pay, not an unknown amount.
+      amountDue: due ? due.amount : summary ? 0 : null,
+      lastPayment: summary?.lastPayment ?? null,
       due,
       daysUntilDue,
       openIncidents: incidents
@@ -159,6 +162,7 @@ export function analyzeAccount({
       nextMeetingDate,
       daysUntilMeeting: nextMeetingDate ? daysBetween(today, nextMeetingDate) : null,
       // Latest first, for the widget.
+      documentsRead: documents !== null,
       documents: [...(documents ?? [])].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
       incidents: incidents ?? [],
     },

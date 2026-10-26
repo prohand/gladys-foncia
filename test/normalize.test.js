@@ -85,7 +85,8 @@ test('accounting: balance, and the earliest debit still to come as the next due'
     lines: {
       edges: [
         line(1, 'Debit', 450.5, '2026-10-01'), // past
-        line(2, 'Credit', 300, '2027-01-01'), // a payment, not a due
+        line(2, 'Credit', 300, '2026-10-05'), // a payment, not a due
+        line(5, 'Credit', 120, '2026-09-05'), // an older payment
         line(3, 'Debit', 470, '2027-01-01'),
         line(4, 'Debit', 460, '2026-11-01'),
       ],
@@ -94,8 +95,13 @@ test('accounting: balance, and the earliest debit still to come as the next due'
   assert.deepEqual(normalizeAccounting(accounting, '2026-10-26'), {
     balance: -450.5,
     due: { amount: 460, date: '2026-11-01', label: 'L4' },
+    lastPayment: { amount: 300, date: '2026-10-05' },
   });
-  assert.deepEqual(normalizeAccounting(null, '2026-10-26'), { balance: null, due: null });
+  assert.deepEqual(normalizeAccounting(null, '2026-10-26'), {
+    balance: null,
+    due: null,
+    lastPayment: null,
+  });
 });
 
 test('documents are sorted into the trigger categories', () => {
@@ -122,9 +128,14 @@ test('tickets get one of three statuses and a readable title', () => {
   assert.equal(status('OPEN'), INCIDENT_STATUSES.OPEN);
   assert.equal(status('WAITING_FOR_FIRST_CLIENT_RESPONSE'), INCIDENT_STATUSES.OPEN);
   assert.equal(status('WORK_IN_PROGRESS'), INCIDENT_STATUSES.IN_PROGRESS);
-  assert.equal(status('PROCESSED'), INCIDENT_STATUSES.IN_PROGRESS);
+  assert.equal(status('PROCESSED'), INCIDENT_STATUSES.CLOSED, 'shown as "Traitée"');
+  assert.equal(status('closed'), INCIDENT_STATUSES.CLOSED);
+  assert.equal(status('AUTO_CLOSED_NO_CLIENT_RESPONSE'), INCIDENT_STATUSES.CLOSED);
   assert.equal(status('FINISHED'), INCIDENT_STATUSES.CLOSED);
   assert.equal(status('CLOSED'), INCIDENT_STATUSES.CLOSED);
+  const ended = (fields) => normalizeTicket({ id: 'T', status: 'OPEN', ...fields }).status;
+  assert.equal(ended({ finishedAt: '2026-10-01' }), INCIDENT_STATUSES.CLOSED);
+  assert.equal(ended({ cancelledAt: '2026-10-01' }), INCIDENT_STATUSES.CLOSED);
   assert.equal(
     normalizeTicket({ id: 'T', ticketNumber: '123', category: 'CO_OWNER_REPAIR_SINISTER' }).title,
     '#123 repair sinister',

@@ -80,11 +80,13 @@ arrive, m'envoyer un message : Nouvel appel de fonds : {{triggerEvent.data.title
 
 ## Widget de tableau de bord
 
-**Compte Foncia** : solde, somme à payer, incidents ouverts et nouveaux
-documents (en direct), connexion et dernière synchro, prochaine échéance et
+**Compte Foncia** : solde, somme à payer (0 € si rien n'est dû), dernier
+règlement et nouveaux documents, connexion et dernière synchro, prochaine échéance et
 prochaine AG, les cinq derniers documents, et deux boutons : **Synchroniser** et
 **Marquer comme vu**. Dans ses réglages, choisissez le compte à afficher (vide =
 le premier).
+
+Un tiret (—) veut dire que MyFoncia n'a pas pu être lu : consultez les logs de l'intégration.
 
 ## Confidentialité
 

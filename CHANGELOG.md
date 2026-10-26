@@ -22,8 +22,10 @@ the notes of the version's GitHub Release.
   and the memory of what was seen survives a restart (`/data/foncia-state.json`).
 - Scene actions: sync now (with the figures of one account as outputs) and mark
   the documents as seen.
-- "Foncia account" dashboard widget: live figures, connection status, next due
-  date and general assembly, latest documents, sync and mark-as-seen buttons.
+- "Foncia account" dashboard widget: balance, amount due (0 € when nothing is
+  due), last payment and new documents, connection status, next due date and
+  general assembly, latest documents, sync and mark-as-seen buttons. A dash
+  replaces a figure only when MyFoncia could not be read.
 - Configuration buttons: test the connection, sync now.
 - Every text in English, French, German and Spanish, user documentation in the
   four languages.
@@ -31,5 +33,11 @@ the notes of the version's GitHub Release.
 - CI (Prettier, ESLint, tests on Node 22 and 24, store checks, Docker build),
   UI-driven Release workflow, GitHub Releases and Dependabot.
 - `SECURITY.md` and `CLAUDE.md`.
+
+### Fixed
+
+- Requests shown as "Traitée" or "Clôturée" on MyFoncia, or finished or
+  cancelled, no longer count as open.
+- A document space MyFoncia refuses no longer hides the documents of the others.
 
 [Unreleased]: https://github.com/prohand/gladys-foncia/commits/main

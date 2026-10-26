@@ -99,6 +99,7 @@ query getTickets($accountUuid: EncodedID!, $first: Int, $status: [TicketStatusEn
         status
         createdAt
         finishedAt
+        cancelledAt
       }
     }
   }

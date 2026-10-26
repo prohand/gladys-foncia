@@ -4,8 +4,10 @@
 // Declared in the manifest `widgets` field, registered by index.js with
 // `gladys.onWidgetGet` / `gladys.onWidgetAction`. The content is declarative
 // (the core renders it with its own theme, dark mode included):
-//   - four LIVE tiles bound to the account features (balance, amount due, open
-//     incidents, new documents): they follow the published states;
+//   - four tiles computed from the last sync (balance, amount due, last payment,
+//     new documents): they always show a value — 0 when nothing is due, a dash
+//     only when MyFoncia could not be read — even before the account device is
+//     created in Gladys;
 //   - a status list computed here: connection, last sync, next due date, next
 //     general assembly;
 //   - the latest documents;
@@ -16,7 +18,6 @@
 // -----------------------------------------------------------------------------
 
 import { createLogger, WIDGET_COLORS } from '@gladysassistant/integration-sdk';
-import { FEATURES, accountIds } from '../devices/account.js';
 import { MYFONCIA_URL } from '../foncia/endpoints.js';
 import { describeError } from '../foncia/errors.js';
 import { DOCUMENT_CATEGORIES } from '../foncia/normalize.js';
@@ -33,11 +34,11 @@ const MAX_DOCUMENTS = 5;
 const T = {
   balance: { en: 'Balance', fr: 'Solde', de: 'Saldo', es: 'Saldo' },
   due: { en: 'Amount due', fr: 'À payer', de: 'Fälliger Betrag', es: 'Importe debido' },
-  incidents: {
-    en: 'Open incidents',
-    fr: 'Incidents ouverts',
-    de: 'Offene Vorfälle',
-    es: 'Incidencias abiertas',
+  lastPayment: {
+    en: 'Last payment',
+    fr: 'Dernier règlement',
+    de: 'Letzte Zahlung',
+    es: 'Último pago',
   },
   documents: {
     en: 'New documents',
@@ -73,6 +74,12 @@ const T = {
     fr: 'Aucun document sur MyFoncia pour le moment.',
     de: 'Noch kein Dokument auf MyFoncia.',
     es: 'Todavía no hay documentos en MyFoncia.',
+  },
+  documentsUnreadable: {
+    en: 'Documents unreadable on MyFoncia: see the logs.',
+    fr: 'Documents MyFoncia illisibles : voir les logs.',
+    de: 'MyFoncia-Dokumente nicht lesbar: siehe Logs.',
+    es: 'Documentos de MyFoncia ilegibles: vea los registros.',
   },
   noData: {
     en: 'Waiting for the first sync with MyFoncia.',
@@ -172,6 +179,9 @@ function statusItems(service, snapshot) {
 }
 
 function documentList(snapshot) {
+  if (!snapshot.documentsRead) {
+    return { type: 'text', text: T.documentsUnreadable, variant: 'caption' };
+  }
   const documents = snapshot.documents.slice(0, MAX_DOCUMENTS);
   if (documents.length === 0) {
     return { type: 'text', text: T.noDocument, variant: 'caption' };
@@ -185,6 +195,22 @@ function documentList(snapshot) {
       badge: CATEGORY_BADGES[document.category] ?? CATEGORY_BADGES[DOCUMENT_CATEGORIES.OTHER],
       links: [{ url: MYFONCIA_URL, label: T.open }],
     })),
+  };
+}
+
+// What a tile shows when MyFoncia could not tell: a dash, never "no value".
+const UNKNOWN = '—';
+
+/** A tile with a value computed from the snapshot. */
+function tile(label, icon, value, unit, color) {
+  const known = typeof value === 'number' && Number.isFinite(value);
+  return {
+    type: 'value',
+    label,
+    icon,
+    value: known ? value : UNKNOWN,
+    ...(known && unit ? { unit } : {}),
+    ...(known && color ? { color } : {}),
   };
 }
 
@@ -216,22 +242,27 @@ export const WIDGETS = {
           ],
         };
       }
-      const ids = accountIds(gladys, snapshot.account.id);
-      const tile = (feature, label, icon) => ({
-        type: 'value',
-        label,
-        icon,
-        device_feature: ids.feature(feature),
-      });
       return {
-        // The sync nudges the widget after every run (index.js): the TTL is
-        // only a safety net.
+        // The tiles come from the last sync, which nudges the widget after
+        // every run (index.js): the TTL is only a safety net.
         ttl_seconds: 900,
         components: [
-          tile(FEATURES.BALANCE, T.balance, 'credit-card'),
-          tile(FEATURES.AMOUNT_DUE, T.due, 'file-text'),
-          tile(FEATURES.OPEN_INCIDENTS, T.incidents, 'tool'),
-          tile(FEATURES.UNSEEN_DOCUMENTS, T.documents, 'inbox'),
+          tile(T.balance, 'credit-card', snapshot.balance, '€'),
+          tile(
+            T.due,
+            'file-text',
+            snapshot.amountDue,
+            '€',
+            snapshot.amountDue > 0 ? WIDGET_COLORS.WARNING : WIDGET_COLORS.SUCCESS,
+          ),
+          tile(T.lastPayment, 'check-circle', snapshot.lastPayment?.amount, '€'),
+          tile(
+            T.documents,
+            'inbox',
+            snapshot.unseenDocuments,
+            undefined,
+            snapshot.unseenDocuments > 0 ? WIDGET_COLORS.INFO : undefined,
+          ),
           { type: 'status', items: statusItems(service, snapshot) },
           documentList(snapshot),
           ...buttons,

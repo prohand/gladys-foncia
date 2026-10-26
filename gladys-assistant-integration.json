@@ -210,10 +210,10 @@
         "es": "Cuenta Foncia"
       },
       "description": {
-        "en": "Balance, amount due, incidents and the latest MyFoncia documents.",
-        "fr": "Solde, somme à payer, incidents et derniers documents MyFoncia.",
-        "de": "Saldo, fälliger Betrag, Vorfälle und die neuesten MyFoncia-Dokumente.",
-        "es": "Saldo, importe debido, incidencias y últimos documentos de MyFoncia."
+        "en": "Balance, amount due, last payment and the latest MyFoncia documents.",
+        "fr": "Solde, somme à payer, dernier règlement et derniers documents MyFoncia.",
+        "de": "Saldo, fälliger Betrag, letzte Zahlung und neueste MyFoncia-Dokumente.",
+        "es": "Saldo, importe debido, último pago y últimos documentos de MyFoncia."
       },
       "icon": "home",
       "settings": [

@@ -76,10 +76,12 @@ me a message: New call for funds: {{triggerEvent.data.title}}"_.
 
 ## Dashboard widget
 
-**Foncia account**: balance, amount due, open incidents and new documents (live),
+**Foncia account**: balance, amount due (0 € when nothing is due), last payment and new documents,
 connection and last sync, next due date and next general assembly, the five
 latest documents, and two buttons: **Sync now** and **Mark as seen**. In its
 settings, pick the account to show (empty = the first one).
+
+A dash (—) means MyFoncia could not be read: see the integration logs.
 
 ## Privacy
 
