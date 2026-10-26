@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-26
+
 ### Added
 
 - First version of the Foncia integration: sign-in with the settings of the
@@ -47,4 +49,5 @@ the notes of the version's GitHub Release.
 - Amounts are read in euros: MyFoncia sends cents, so the balance, the amount
   due and the last payment were 100 times too high.
 
-[Unreleased]: https://github.com/prohand/gladys-foncia/commits/main
+[Unreleased]: https://github.com/prohand/gladys-foncia/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/prohand/gladys-foncia/releases/tag/v2.0.0
