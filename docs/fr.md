@@ -7,7 +7,7 @@ ajoute aussi des déclencheurs de scène, des actions de scène et un widget de
 tableau de bord.
 
 > Intégration non officielle. Foncia ne publie pas d'API : l'intégration lit
-> votre compte comme le fait le site myfoncia.fr. Si Foncia modifie son site,
+> votre compte comme le fait le site my-foncia.fonciamillenium.net. Si Foncia modifie son site,
 > l'intégration peut cesser de fonctionner jusqu'à sa mise à jour.
 
 ## Prérequis
@@ -22,7 +22,7 @@ tableau de bord.
 
 | Champ                       | Quoi saisir                                                                                             |
 | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| E-mail MyFoncia             | L'e-mail avec lequel vous vous connectez sur myfoncia.fr.                                               |
+| E-mail MyFoncia             | L'e-mail avec lequel vous vous connectez sur my-foncia.fonciamillenium.net.                             |
 | Mot de passe MyFoncia       | Votre mot de passe. Stocké par Gladys comme secret, envoyé uniquement à la page de connexion de Foncia. |
 | Intervalle de synchro (min) | Fréquence de lecture de MyFoncia. 60 par défaut, 15 minimum.                                            |
 | Rappel d'échéance (jours)   | Combien de jours avant une échéance le déclencheur « Échéance à payer » se déclenche. 7 par défaut.     |
@@ -37,14 +37,14 @@ Un appareil Gladys par compte MyFoncia (un lot de copropriété, une location),
 nommé `Foncia – <compte>`. Créez-le depuis l'onglet **Découverte**. Ses
 fonctionnalités sont en lecture seule et gardent leur historique :
 
-| Fonctionnalité                   | Unité | Signification                                                                 |
-| -------------------------------- | ----- | ----------------------------------------------------------------------------- |
-| Solde du compte                  | €     | Tel qu'affiché par MyFoncia (négatif : vous devez de l'argent).               |
-| Prochaine somme à payer          | €     | Montant du prochain appel de fonds ou loyer.                                  |
-| Jours avant l'échéance           | jours | Négatif une fois la date passée.                                              |
-| Incidents ouverts                | —     | Incidents et interventions pas encore clôturés.                               |
-| Nouveaux documents               | —     | Documents ajoutés depuis la dernière fois où vous les avez marqués comme vus. |
-| Jours avant l'assemblée générale | jours | Prochaine AG de la copropriété.                                               |
+| Fonctionnalité                   | Unité | Signification                                                                  |
+| -------------------------------- | ----- | ------------------------------------------------------------------------------ |
+| Solde du compte                  | €     | Tel qu'affiché par MyFoncia (négatif : vous devez de l'argent).                |
+| Prochaine somme à payer          | €     | Montant du prochain appel de fonds ou loyer.                                   |
+| Jours avant l'échéance           | jours | Négatif une fois la date passée.                                               |
+| Incidents ouverts                | —     | Demandes faites à Foncia (travaux, incidents, questions) pas encore clôturées. |
+| Nouveaux documents               | —     | Documents ajoutés depuis la dernière fois où vous les avez marqués comme vus.  |
+| Jours avant l'assemblée générale | jours | Prochaine AG de la copropriété.                                                |
 
 Le badge de l'appareil indique **cloud**, ou **injoignable** quand la dernière
 synchronisation a échoué.
@@ -89,7 +89,7 @@ le premier).
 ## Confidentialité
 
 - Le mot de passe n'est envoyé qu'à la page de connexion de Foncia
-  (`foncia.okta-emea.com`). Il n'est jamais écrit dans les logs.
+  (`login.my-foncia.fonciamillenium.net`). Il n'est jamais écrit dans les logs.
 - Les jetons d'accès restent en mémoire. Le seul fichier écrit est
   `/data/foncia-state.json` : les identifiants des documents, incidents et
   assemblées déjà vus, pour qu'aucun déclencheur ne parte deux fois après un
@@ -97,30 +97,25 @@ le premier).
 
 ## Dépannage
 
-| Message                                       | Que faire                                                                  |
-| --------------------------------------------- | -------------------------------------------------------------------------- |
-| MyFoncia a refusé l'e-mail ou le mot de passe | Vérifiez-les en vous connectant sur myfoncia.fr.                           |
-| demande un second facteur                     | Non pris en charge : le compte demande un code à chaque connexion.         |
-| Le compte MyFoncia est bloqué                 | Débloquez-le sur myfoncia.fr, puis appuyez sur Tester la connexion.        |
-| L'identifiant client MyFoncia manque          | Voir [Réglages avancés](#réglages-avancés).                                |
-| MyFoncia est injoignable                      | Vérifiez l'accès Internet de Gladys.                                       |
-| MyFoncia a répondu par une erreur             | Consultez les logs de l'intégration ; Foncia a peut-être modifié son site. |
+| Message                                       | Que faire                                                                             |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| MyFoncia a refusé l'e-mail ou le mot de passe | Vérifiez-les en vous connectant sur my-foncia.fonciamillenium.net.                    |
+| demande un second facteur                     | Non pris en charge : le compte demande un code à chaque connexion.                    |
+| Le compte MyFoncia est bloqué                 | Débloquez-le sur my-foncia.fonciamillenium.net, puis appuyez sur Tester la connexion. |
+| L'identifiant client MyFoncia manque          | Voir [Réglages avancés](#réglages-avancés).                                           |
+| MyFoncia est injoignable                      | Vérifiez l'accès Internet de Gladys.                                                  |
+| MyFoncia a répondu par une erreur             | Consultez les logs de l'intégration ; Foncia a peut-être modifié son site.            |
 
 ## Réglages avancés
 
-L'application web MyFoncia se connecte avec un **identifiant client** Okta et
-lit une API dont l'adresse n'est pas publiée. Si l'intégration signale un
-identifiant client manquant, ou une erreur d'API à chaque synchronisation, vous
-pouvez lire ces deux valeurs dans votre navigateur :
+L'intégration se connecte et lit votre compte avec les mêmes réglages que le
+site MyFoncia : son **identifiant client** Okta et l'adresse de son **API**. Les
+deux sont intégrés : laissez ces deux champs vides.
 
-1. Ouvrez <https://myfoncia.fr> dans un navigateur d'ordinateur et ouvrez les
-   outils de développement (F12), onglet **Réseau**.
-2. Connectez-vous. Cherchez la requête vers `authorize` : son paramètre
-   `client_id` est l'**identifiant client Okta**.
-3. Une fois connecté, cherchez une requête qui porte un en-tête
-   `Authorization: Bearer` : le début de son adresse (`https://hôte`) est
-   l'**URL de l'API MyFoncia**.
-
-Saisissez-les dans les réglages avancés, enregistrez, puis appuyez sur **Tester
-la connexion**. Ouvrez aussi un ticket sur le dépôt pour que les valeurs par
-défaut soient mises à jour pour tout le monde.
+Si un jour Foncia les change et que chaque synchronisation échoue avec une
+erreur d'API, lisez les nouvelles valeurs dans
+<https://my-foncia.fonciamillenium.net/config.js> : `clientId` sous `oktaConfig`
+est l'**identifiant client Okta**, `url` sous `graphql` est l'**URL de l'API
+MyFoncia**. Saisissez-les dans les réglages avancés, enregistrez, puis appuyez
+sur **Tester la connexion**. Ouvrez aussi un ticket sur le dépôt pour que les
+valeurs intégrées soient mises à jour pour tout le monde.

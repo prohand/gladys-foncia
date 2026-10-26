@@ -243,9 +243,5 @@ test('a list that could not be read leaves its figures unknown', () => {
   const { snapshot } = analyze({ documents: null, incidents: null, meetings: null });
   assert.equal(snapshot.unseenDocuments, null);
   assert.equal(snapshot.openIncidents, null);
-  assert.equal(
-    snapshot.balance,
-    ACCOUNT.balance,
-    'the balance of the account list is the fallback',
-  );
+  assert.equal(snapshot.balance, null, 'no accounting read, no balance');
 });

@@ -1,3 +1,8 @@
+// -----------------------------------------------------------------------------
+// MyFoncia GraphQL answers -> the shapes the integration works with. The
+// samples follow the fields of the web app's own queries (src/foncia/queries.js).
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -5,109 +10,139 @@ import {
   INCIDENT_STATUSES,
   ROLES,
   daysBetween,
-  listOf,
+  nodesOf,
   normalizeAccount,
+  normalizeAccounting,
   normalizeDocument,
-  normalizeIncident,
   normalizeList,
   normalizeMeeting,
-  normalizeSummary,
+  normalizeTicket,
   toAmount,
   toDate,
 } from '../src/foncia/normalize.js';
 
-test('amounts are read the French way too', () => {
+test('amounts are read as numbers, French strings or { value } objects', () => {
   assert.equal(toAmount(12.345), 12.35);
   assert.equal(toAmount('-1 234,56 €'), -1234.56);
   assert.equal(toAmount('1.234,5'), 1234.5);
-  assert.equal(toAmount('1234.5'), 1234.5);
   assert.equal(toAmount('1 234,00 EUR'), 1234);
-  assert.equal(toAmount('− 10,00'), -10);
-  assert.equal(toAmount({ amount: '45,10', currency: 'EUR' }), 45.1);
+  assert.equal(toAmount({ value: 45.1, currency: 'EUR' }), 45.1);
   assert.equal(toAmount('n/a'), null);
-  assert.equal(toAmount(''), null);
   assert.equal(toAmount(null), null);
 });
 
 test('dates become YYYY-MM-DD', () => {
   assert.equal(toDate('2026-10-01T08:00:00Z'), '2026-10-01');
   assert.equal(toDate('5/3/2026'), '2026-03-05');
-  assert.equal(toDate(Date.UTC(2026, 0, 2)), '2026-01-02');
   assert.equal(toDate('not a date'), null);
   assert.equal(daysBetween('2026-10-26', '2026-11-01'), 6);
   assert.equal(daysBetween('2026-10-26', '2026-10-20'), -6);
   assert.equal(daysBetween('2026-10-26', null), null);
 });
 
-test('lists are found under the usual wrappers', () => {
-  assert.deepEqual(listOf([1]), [1]);
-  assert.deepEqual(listOf({ items: [1] }), [1]);
-  assert.deepEqual(listOf({ data: { results: [2] } }), [2]);
-  assert.deepEqual(listOf({ comptes: [3] }, 'comptes'), [3]);
-  assert.deepEqual(listOf('nope'), []);
+test('connections give their nodes', () => {
+  assert.deepEqual(nodesOf({ edges: [{ node: 1 }, { node: null }, {}] }), [1]);
+  assert.deepEqual(nodesOf([2]), [2]);
+  assert.deepEqual(nodesOf(null), []);
 });
 
-test('accounts: id, name, role and balance under their known names', () => {
+test('accounts: uuid, building name, role from the quality', () => {
+  const building = {
+    id: 'B1',
+    name: 'Résidence Les Lilas',
+    address: { address1: '12 rue des Lilas', zipCode: '75011', city: 'Paris' },
+  };
   assert.deepEqual(
-    normalizeAccount({ uuid: 7, libelle: 'Lot 12', typeCompte: 'Copropriétaire', solde: '-50,00' }),
-    { id: '7', name: 'Lot 12', address: null, role: ROLES.OWNER, balance: -50 },
+    normalizeAccount({ uuid: 'QWNjb3VudDox', number: '0042', quality: 'CO_OWNER', building }),
+    {
+      id: 'QWNjb3VudDox',
+      number: '0042',
+      quality: 'CO_OWNER',
+      name: 'Résidence Les Lilas',
+      address: '12 rue des Lilas 75011 Paris',
+      role: ROLES.OWNER,
+    },
   );
   const tenant = normalizeAccount({
-    id: 'X',
-    address: { label: '1 rue Haute' },
-    role: 'LOCATAIRE',
+    uuid: 'T',
+    quality: 'TENANT',
+    building: { ...building, name: null },
   });
-  assert.equal(tenant.name, '1 rue Haute');
+  assert.equal(tenant.name, '12 rue des Lilas 75011 Paris');
   assert.equal(tenant.role, ROLES.TENANT);
-  assert.equal(normalizeAccount({ name: 'no id' }), null);
-  assert.equal(normalizeAccount(null), null);
+  const landlord = normalizeAccount({ uuid: 'L', number: '7', quality: 'LANDLORD', buildings: [] });
+  assert.equal(landlord.name, 'Foncia 7');
+  assert.equal(landlord.role, ROLES.OWNER);
+  assert.equal(normalizeAccount({ number: 'no uuid' }), null);
 });
 
-test('summary: balance, next due and next meeting', () => {
-  assert.deepEqual(
-    normalizeSummary({
-      solde: 10,
-      prochainAppel: { montant: '450,50', dateEcheance: '01/11/2026' },
-      nextMeeting: { date: '2027-03-15' },
-    }),
-    { balance: 10, due: { amount: 450.5, date: '2026-11-01' }, nextMeetingDate: '2027-03-15' },
-  );
-  assert.deepEqual(normalizeSummary(null), { balance: null, due: null, nextMeetingDate: null });
+test('accounting: balance, and the earliest debit still to come as the next due', () => {
+  const line = (id, typename, value, dueDate) => ({
+    node: { id, label: `L${id}`, dueDate, amount: { __typename: typename, value } },
+  });
+  const accounting = {
+    currentBalance: { value: -450.5, currency: 'EUR' },
+    lines: {
+      edges: [
+        line(1, 'Debit', 450.5, '2026-10-01'), // past
+        line(2, 'Credit', 300, '2027-01-01'), // a payment, not a due
+        line(3, 'Debit', 470, '2027-01-01'),
+        line(4, 'Debit', 460, '2026-11-01'),
+      ],
+    },
+  };
+  assert.deepEqual(normalizeAccounting(accounting, '2026-10-26'), {
+    balance: -450.5,
+    due: { amount: 460, date: '2026-11-01', label: 'L4' },
+  });
+  assert.deepEqual(normalizeAccounting(null, '2026-10-26'), { balance: null, due: null });
 });
 
 test('documents are sorted into the trigger categories', () => {
-  const category = (title, type) => normalizeDocument({ id: 1, title, type }).category;
-  assert.equal(category('Appel de fonds 4T 2026'), DOCUMENT_CATEGORIES.CALL_FOR_FUNDS);
-  assert.equal(category('Convocation AG 2027'), DOCUMENT_CATEGORIES.MEETING);
-  assert.equal(category('Procès-verbal'), DOCUMENT_CATEGORIES.MEETING);
-  assert.equal(category('Décompte de charges 2025'), DOCUMENT_CATEGORIES.STATEMENT);
-  assert.equal(category('Quittance octobre'), DOCUMENT_CATEGORIES.INVOICE);
-  assert.equal(category('Règlement intérieur'), DOCUMENT_CATEGORIES.OTHER);
-  assert.equal(category('Doc', 'INVOICE'), DOCUMENT_CATEGORIES.INVOICE);
+  const category = (value) => normalizeDocument({ id: 'D', category: value }).category;
+  assert.equal(category('provisionCalls'), DOCUMENT_CATEGORIES.CALL_FOR_FUNDS);
+  assert.equal(category('dueNotice'), DOCUMENT_CATEGORIES.CALL_FOR_FUNDS);
+  assert.equal(category('generalAssembly'), DOCUMENT_CATEGORIES.MEETING);
+  assert.equal(category('accountSituation'), DOCUMENT_CATEGORIES.STATEMENT);
+  assert.equal(category('invoices'), DOCUMENT_CATEGORIES.INVOICE);
+  assert.equal(category('insurance'), DOCUMENT_CATEGORIES.OTHER);
+  assert.deepEqual(
+    normalizeDocument({
+      id: 'D1',
+      originalFilename: 'Appel de fonds T4.pdf',
+      category: 'provisionCalls',
+      createdAt: '2026-10-01T09:00:00Z',
+    }),
+    { id: 'D1', title: 'Appel de fonds T4', category: 'call_for_funds', date: '2026-10-01' },
+  );
 });
 
-test('incidents get one of three statuses', () => {
-  const status = (statut) => normalizeIncident({ id: 1, statut }).status;
-  assert.equal(status('Nouveau'), INCIDENT_STATUSES.OPEN);
-  assert.equal(status('En cours'), INCIDENT_STATUSES.IN_PROGRESS);
-  assert.equal(status('Intervention planifiée'), INCIDENT_STATUSES.IN_PROGRESS);
-  assert.equal(status('Clôturé'), INCIDENT_STATUSES.CLOSED);
-  assert.equal(status('RESOLVED'), INCIDENT_STATUSES.CLOSED);
+test('tickets get one of three statuses and a readable title', () => {
+  const status = (value) => normalizeTicket({ id: 'T', status: value }).status;
+  assert.equal(status('OPEN'), INCIDENT_STATUSES.OPEN);
+  assert.equal(status('WAITING_FOR_FIRST_CLIENT_RESPONSE'), INCIDENT_STATUSES.OPEN);
+  assert.equal(status('WORK_IN_PROGRESS'), INCIDENT_STATUSES.IN_PROGRESS);
+  assert.equal(status('PROCESSED'), INCIDENT_STATUSES.IN_PROGRESS);
+  assert.equal(status('FINISHED'), INCIDENT_STATUSES.CLOSED);
+  assert.equal(status('CLOSED'), INCIDENT_STATUSES.CLOSED);
+  assert.equal(
+    normalizeTicket({ id: 'T', ticketNumber: '123', category: 'CO_OWNER_REPAIR_SINISTER' }).title,
+    '#123 repair sinister',
+  );
 });
 
-test('meetings without an id are known by their date', () => {
-  assert.deepEqual(normalizeMeeting({ dateAG: '2027-03-15' }), {
-    id: '2027-03-15',
-    title: 'General assembly',
-    date: '2027-03-15',
-  });
-  assert.equal(normalizeMeeting({ title: 'no date, no id' }), null);
+test('general assemblies are known by their id, dated by the official meeting', () => {
+  assert.deepEqual(
+    normalizeMeeting({ id: 'G1', label: 'AGO 2027', officialMeeting: { date: '2027-03-15' } }),
+    { id: 'G1', title: 'AGO 2027', date: '2027-03-15' },
+  );
+  assert.equal(normalizeMeeting({ label: 'no id' }), null);
 });
 
 test('normalizeList drops what it cannot identify', () => {
   assert.deepEqual(
     normalizeList(
-      { items: [{ id: 1, title: 'A' }, { title: 'no id' }, null] },
+      { edges: [{ node: { id: 1 } }, { node: { title: 'no id' } }] },
       normalizeDocument,
     ).map((d) => d.id),
     ['1'],

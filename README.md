@@ -6,7 +6,7 @@ official [JavaScript template](https://github.com/GladysAssistant/integration-te
 [`@gladysassistant/integration-sdk`](https://github.com/GladysAssistant/integration-sdk-js).
 
 > **Unofficial.** Foncia publishes no API: the integration signs in and reads the account the way
-> the myfoncia.fr web app does. See [Status](#status).
+> the MyFoncia web app (<https://my-foncia.fonciamillenium.net>) does. See [Status](#status).
 
 |           |                                                                           |
 | --------- | ------------------------------------------------------------------------- |
@@ -97,15 +97,18 @@ vulnerability reporting** (see [`SECURITY.md`](SECURITY.md)).
 
 ## Status
 
-- Sign-in uses Foncia's Okta organization (`foncia.okta-emea.com`, confirmed by its public OpenID
-  discovery document) with the standard flow of a single-page app: `authn` → `authorize` (PKCE)
-  → `token`, then refresh tokens.
-- **To confirm with a real account**: the Okta client id of the MyFoncia web app, the API host and
-  the paths in [`src/foncia/endpoints.js`](src/foncia/endpoints.js). The client id and the API URL
-  can be set from the "Advanced settings" of the configuration without rebuilding the image (see
-  the [documentation](docs/en.md#advanced-settings)). The JSON parsing
-  ([`src/foncia/normalize.js`](src/foncia/normalize.js)) accepts the usual French and English
-  field names.
+- Everything comes from the MyFoncia web app itself (`https://my-foncia.fonciamillenium.net/config.js`
+  and its own GraphQL operations):
+  - sign-in: Okta `login.my-foncia.fonciamillenium.net`, authorization server `millenium`, the web
+    app's client id; `authn` → `authorize` (`prompt=none`, PKCE) → `token`, then refresh tokens —
+    what the web app does with `signInWithCredentials` + `token.getWithoutPrompt`;
+  - data: `https://customer-portal-gateway.prod.fonciamillenium.net/graphql` with the operations
+    `getBasicAccounts`, `getDashboardAccountingBalance`, `getAccountDocuments`, `getTickets` and
+    `getGeneralAssemblies` (see [`src/foncia/queries.js`](src/foncia/queries.js)).
+- Not yet run against a live account: the first syncs should be watched in the logs. A GraphQL
+  error on one list (documents, tickets, assemblies) is logged and does not stop the others.
+- The client id and the API URL can be overridden from the "Advanced settings" of the
+  configuration, without rebuilding the image, if Foncia changes them.
 - Accounts protected by a second factor (SMS / app) are not supported.
 
 ## License

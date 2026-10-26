@@ -12,11 +12,12 @@ the notes of the version's GitHub Release.
 
 ### Added
 
-- First version of the Foncia integration: sign-in to MyFoncia (Okta, PKCE,
-  refresh token), one Gladys device per account with its balance, next amount
-  due, days until the due date, open incidents, new documents and days until
-  the general assembly.
-- Scene triggers: new document (filtered by type), incident updated (filtered by
+- First version of the Foncia integration: sign-in with the settings of the
+  MyFoncia web app (my-foncia.fonciamillenium.net: Okta, PKCE, refresh token),
+  account read through its GraphQL API, one Gladys device per account with its
+  balance, next amount due, days until the due date, open requests to Foncia,
+  new documents and days until the general assembly.
+- Scene triggers: new document (filtered by type), request updated (filtered by
   status), payment due soon, general assembly announced. Only what is new fires,
   and the memory of what was seen survives a restart (`/data/foncia-state.json`).
 - Scene actions: sync now (with the figures of one account as outputs) and mark

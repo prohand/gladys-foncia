@@ -7,7 +7,7 @@ junta de propietarios. También añade disparadores de escena, acciones de escen
 y un widget para el panel.
 
 > Integración no oficial. Foncia no publica ninguna API: la integración lee su
-> cuenta como lo hace el sitio myfoncia.fr. Si Foncia cambia su sitio, la
+> cuenta como lo hace el sitio my-foncia.fonciamillenium.net. Si Foncia cambia su sitio, la
 > integración puede dejar de funcionar hasta que se actualice.
 
 ## Requisitos
@@ -22,7 +22,7 @@ y un widget para el panel.
 
 | Campo                             | Qué introducir                                                                                          |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Correo de MyFoncia                | El correo con el que inicia sesión en myfoncia.fr.                                                      |
+| Correo de MyFoncia                | El correo con el que inicia sesión en my-foncia.fonciamillenium.net.                                    |
 | Contraseña de MyFoncia            | Su contraseña. Gladys la guarda como secreto y solo se envía a la página de inicio de sesión de Foncia. |
 | Intervalo de sincronización (min) | Cada cuánto se lee MyFoncia. 60 por defecto, mínimo 15.                                                 |
 | Aviso de vencimiento (días)       | Cuántos días antes de un vencimiento se activa el disparador «Pago pendiente». 7 por defecto.           |
@@ -37,14 +37,14 @@ Un dispositivo de Gladys por cuenta MyFoncia (un piso de una comunidad, un
 alquiler), llamado `Foncia – <cuenta>`. Créelo desde la pestaña **Descubrir**.
 Sus funciones son de solo lectura y conservan su historial:
 
-| Función                   | Unidad | Significado                                                        |
-| ------------------------- | ------ | ------------------------------------------------------------------ |
-| Saldo de la cuenta        | €      | Tal como lo muestra MyFoncia (negativo: usted debe dinero).        |
-| Próximo importe a pagar   | €      | Importe de la próxima derrama o del próximo alquiler.              |
-| Días hasta el vencimiento | días   | Negativo una vez pasada la fecha.                                  |
-| Incidencias abiertas      | —      | Incidencias y reparaciones aún no cerradas.                        |
-| Documentos nuevos         | —      | Documentos añadidos desde la última vez que los marcó como vistos. |
-| Días hasta la junta       | días   | Próxima junta de la comunidad de propietarios.                     |
+| Función                   | Unidad | Significado                                                                  |
+| ------------------------- | ------ | ---------------------------------------------------------------------------- |
+| Saldo de la cuenta        | €      | Tal como lo muestra MyFoncia (negativo: usted debe dinero).                  |
+| Próximo importe a pagar   | €      | Importe de la próxima derrama o del próximo alquiler.                        |
+| Días hasta el vencimiento | días   | Negativo una vez pasada la fecha.                                            |
+| Incidencias abiertas      | —      | Solicitudes a Foncia (reparaciones, incidencias, preguntas) aún no cerradas. |
+| Documentos nuevos         | —      | Documentos añadidos desde la última vez que los marcó como vistos.           |
+| Días hasta la junta       | días   | Próxima junta de la comunidad de propietarios.                               |
 
 La insignia del dispositivo indica **cloud**, o **inaccesible** cuando la última
 sincronización ha fallado.
@@ -88,7 +88,7 @@ primera).
 ## Privacidad
 
 - La contraseña solo se envía a la página de inicio de sesión de Foncia
-  (`foncia.okta-emea.com`). Nunca se escribe en los registros.
+  (`login.my-foncia.fonciamillenium.net`). Nunca se escribe en los registros.
 - Los tokens de acceso se quedan en memoria. El único archivo escrito es
   `/data/foncia-state.json`: los identificadores de los documentos, incidencias
   y juntas ya vistos, para que ningún disparador se active dos veces tras un
@@ -98,28 +98,22 @@ primera).
 
 | Mensaje                                         | Qué hacer                                                                          |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| MyFoncia ha rechazado el correo o la contraseña | Compruébelos iniciando sesión en myfoncia.fr.                                      |
+| MyFoncia ha rechazado el correo o la contraseña | Compruébelos iniciando sesión en my-foncia.fonciamillenium.net.                    |
 | pide un segundo factor                          | No compatible: la cuenta pide un código en cada inicio de sesión.                  |
-| La cuenta de MyFoncia está bloqueada            | Desbloquéela en myfoncia.fr y pulse Probar la conexión.                            |
+| La cuenta de MyFoncia está bloqueada            | Desbloquéela en my-foncia.fonciamillenium.net y pulse Probar la conexión.          |
 | Falta el identificador de cliente de MyFoncia   | Vea [Ajustes avanzados](#ajustes-avanzados).                                       |
 | No se puede acceder a MyFoncia                  | Compruebe el acceso a Internet de Gladys.                                          |
 | MyFoncia ha respondido con un error             | Consulte los registros de la integración; puede que Foncia haya cambiado su sitio. |
 
 ## Ajustes avanzados
 
-La aplicación web MyFoncia inicia sesión con un **ID de cliente** de Okta y lee
-una API cuya dirección no está publicada. Si la integración indica que falta el
-ID de cliente, o un error de API en cada sincronización, puede leer ambos
-valores en su navegador:
+La integración inicia sesión y lee su cuenta con los mismos ajustes que el sitio
+MyFoncia: su **ID de cliente** de Okta y la dirección de su **API**. Ambos están
+integrados: deje estos dos campos vacíos.
 
-1. Abra <https://myfoncia.fr> en un navegador de escritorio y abra las
-   herramientas de desarrollo (F12), pestaña **Red**.
-2. Inicie sesión. Busque la petición a `authorize`: su parámetro `client_id`
-   es el **ID de cliente Okta**.
-3. Una vez dentro, busque una petición con la cabecera
-   `Authorization: Bearer`: el principio de su dirección (`https://host`) es la
-   **URL de la API de MyFoncia**.
-
-Introdúzcalos en los ajustes avanzados, guarde y pulse **Probar la conexión**.
-Abra también una incidencia en el repositorio para que los valores por defecto
-se actualicen para todos.
+Si algún día Foncia los cambia y cada sincronización falla con un error de API,
+lea los nuevos valores en <https://my-foncia.fonciamillenium.net/config.js>:
+`clientId` bajo `oktaConfig` es el **ID de cliente Okta**, `url` bajo `graphql`
+es la **URL de la API de MyFoncia**. Introdúzcalos en los ajustes avanzados,
+guarde y pulse **Probar la conexión**. Abra también una incidencia en el
+repositorio para que los valores integrados se actualicen para todos.

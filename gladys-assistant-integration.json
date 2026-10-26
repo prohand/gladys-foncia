@@ -37,14 +37,14 @@
         "es": "Primeros pasos"
       },
       "description": {
-        "en": "Enter the e-mail and password you use on myfoncia.fr. The integration reads your account every hour: one Gladys device per account, with its balance, the next amount due, the open incidents and the new documents. Accounts protected by a second factor (SMS, app) are not supported.",
-        "fr": "Saisissez l'e-mail et le mot de passe que vous utilisez sur myfoncia.fr. L'intégration lit votre compte toutes les heures : un appareil Gladys par compte, avec son solde, la prochaine somme à payer, les incidents ouverts et les nouveaux documents. Les comptes protégés par un second facteur (SMS, application) ne sont pas pris en charge.",
-        "de": "Gib die E-Mail-Adresse und das Passwort ein, die du auf myfoncia.fr verwendest. Die Integration liest dein Konto stündlich: ein Gladys-Gerät pro Konto, mit Saldo, nächstem fälligem Betrag, offenen Vorfällen und neuen Dokumenten. Konten mit zweitem Faktor (SMS, App) werden nicht unterstützt.",
-        "es": "Introduzca el correo y la contraseña que usa en myfoncia.fr. La integración lee su cuenta cada hora: un dispositivo de Gladys por cuenta, con su saldo, el próximo importe a pagar, las incidencias abiertas y los documentos nuevos. Las cuentas protegidas con un segundo factor (SMS, app) no son compatibles."
+        "en": "Enter the e-mail and password you use on my-foncia.fonciamillenium.net. The integration reads your account every hour: one Gladys device per account, with its balance, the next amount due, the open incidents and the new documents. Accounts protected by a second factor (SMS, app) are not supported.",
+        "fr": "Saisissez l'e-mail et le mot de passe que vous utilisez sur my-foncia.fonciamillenium.net. L'intégration lit votre compte toutes les heures : un appareil Gladys par compte, avec son solde, la prochaine somme à payer, les incidents ouverts et les nouveaux documents. Les comptes protégés par un second facteur (SMS, application) ne sont pas pris en charge.",
+        "de": "Gib die E-Mail-Adresse und das Passwort ein, die du auf my-foncia.fonciamillenium.net verwendest. Die Integration liest dein Konto stündlich: ein Gladys-Gerät pro Konto, mit Saldo, nächstem fälligem Betrag, offenen Vorfällen und neuen Dokumenten. Konten mit zweitem Faktor (SMS, App) werden nicht unterstützt.",
+        "es": "Introduzca el correo y la contraseña que usa en my-foncia.fonciamillenium.net. La integración lee su cuenta cada hora: un dispositivo de Gladys por cuenta, con su saldo, el próximo importe a pagar, las incidencias abiertas y los documentos nuevos. Las cuentas protegidas con un segundo factor (SMS, app) no son compatibles."
       },
       "links": [
         {
-          "url": "https://myfoncia.fr",
+          "url": "https://my-foncia.fonciamillenium.net",
           "label": {
             "en": "MyFoncia",
             "fr": "MyFoncia",
@@ -141,10 +141,10 @@
         "es": "Ajustes avanzados"
       },
       "description": {
-        "en": "Foncia publishes no API: leave these fields empty unless the documentation or a support request tells you what to put in them.",
-        "fr": "Foncia ne publie pas d'API : laissez ces champs vides, sauf si la documentation ou le support vous indique quoi y mettre.",
-        "de": "Foncia veröffentlicht keine API: Lass diese Felder leer, es sei denn, die Dokumentation oder der Support sagt dir, was hinein soll.",
-        "es": "Foncia no publica ninguna API: deje estos campos vacíos salvo que la documentación o el soporte le indique qué poner."
+        "en": "Built in: leave these fields empty. Only fill them in if Foncia changes its settings (see the documentation).",
+        "fr": "Intégrés : laissez ces champs vides. Ne les remplissez que si Foncia change ses réglages (voir la documentation).",
+        "de": "Eingebaut: Lass diese Felder leer. Fülle sie nur aus, wenn Foncia seine Einstellungen ändert (siehe Dokumentation).",
+        "es": "Integrados: deje estos campos vacíos. Rellénelos solo si Foncia cambia sus ajustes (vea la documentación)."
       }
     },
     {
@@ -367,10 +367,10 @@
         "es": "Incidencia de Foncia actualizada"
       },
       "description": {
-        "en": "An incident or a repair was opened, or its status changed.",
-        "fr": "Un incident ou une intervention a été ouvert, ou son statut a changé.",
-        "de": "Ein Vorfall oder eine Reparatur wurde eröffnet oder ihr Status hat sich geändert.",
-        "es": "Se ha abierto una incidencia o una reparación, o su estado ha cambiado."
+        "en": "A request to Foncia (repair, incident, question) was opened, or its status changed.",
+        "fr": "Une demande faite à Foncia (travaux, incident, question) a été ouverte, ou son statut a changé.",
+        "de": "Eine Anfrage an Foncia (Reparatur, Vorfall, Frage) wurde eröffnet oder ihr Status hat sich geändert.",
+        "es": "Se ha abierto una solicitud a Foncia (reparación, incidencia, pregunta), o su estado ha cambiado."
       },
       "fields": [
         {

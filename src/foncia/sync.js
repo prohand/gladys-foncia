@@ -149,7 +149,7 @@ export function analyzeAccount({
     snapshot: {
       device,
       account,
-      balance: summary?.balance ?? account.balance,
+      balance: summary?.balance ?? null,
       due,
       daysUntilDue,
       openIncidents: incidents
@@ -215,10 +215,10 @@ export function createFonciaService({
           return null;
         });
       const [summary, documents, incidents, meetings] = await Promise.all([
-        part('summary', () => client.getSummary(account.id)),
-        part('documents', () => client.getDocuments(account.id)),
-        part('incidents', () => client.getIncidents(account.id)),
-        part('meetings', () => client.getMeetings(account.id)),
+        part('summary', () => client.getSummary(account)),
+        part('documents', () => client.getDocuments(account)),
+        part('incidents', () => client.getIncidents(account)),
+        part('meetings', () => client.getMeetings(account)),
       ]);
       const firstSync = !store.knows(account.id);
       results.push(

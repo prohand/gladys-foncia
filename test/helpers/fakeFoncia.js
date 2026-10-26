@@ -7,16 +7,17 @@ import { FonciaError } from '../../src/foncia/errors.js';
 
 export const ACCOUNT = {
   id: 'A1',
+  number: '0042',
+  quality: 'CO_OWNER',
   name: '12 rue des Lilas',
   address: null,
   role: 'owner',
-  balance: -120,
 };
 
 export function createFakeClient(overrides = {}) {
   const data = {
     accounts: [ACCOUNT],
-    summary: { balance: -120, due: { amount: 450.5, date: '2026-11-01' }, nextMeetingDate: null },
+    summary: { balance: -120, due: { amount: 450.5, date: '2026-11-01', label: 'Appel T4' } },
     documents: [
       { id: 'D1', title: 'Appel de fonds T4', category: 'call_for_funds', date: '2026-10-01' },
     ],

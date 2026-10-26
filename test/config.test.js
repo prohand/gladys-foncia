@@ -9,7 +9,7 @@ import {
 } from '../src/config.js';
 import {
   DEFAULT_ENDPOINTS,
-  apiPath,
+  graphqlUrl,
   oauthBase,
   resolveEndpoints,
 } from '../src/foncia/endpoints.js';
@@ -45,17 +45,21 @@ test('the advanced settings override the built-in endpoints only when filled', (
   );
   assert.equal(endpoints.clientId, '0oa123');
   assert.equal(endpoints.apiUrl, 'https://api.example.com');
-  assert.equal(
-    apiPath(endpoints, 'documents', 'A 1'),
-    'https://api.example.com/accounts/A%201/documents',
-  );
-  assert.throws(() => apiPath(endpoints, 'nope'), /Unknown MyFoncia endpoint/);
+  assert.equal(graphqlUrl(endpoints), 'https://api.example.com/graphql');
 });
 
-test('the Okta base URL follows the authorization server', () => {
-  assert.equal(oauthBase(DEFAULT_ENDPOINTS), 'https://foncia.okta-emea.com/oauth2');
+test('the built-in endpoints are those of the MyFoncia web app', () => {
   assert.equal(
-    oauthBase({ ...DEFAULT_ENDPOINTS, authorizationServer: 'default' }),
-    'https://foncia.okta-emea.com/oauth2/default',
+    oauthBase(DEFAULT_ENDPOINTS),
+    'https://login.my-foncia.fonciamillenium.net/oauth2/millenium',
+  );
+  assert.equal(
+    graphqlUrl(DEFAULT_ENDPOINTS),
+    'https://customer-portal-gateway.prod.fonciamillenium.net/graphql',
+  );
+  assert.ok(DEFAULT_ENDPOINTS.clientId);
+  assert.equal(
+    oauthBase({ ...DEFAULT_ENDPOINTS, authorizationServer: '' }),
+    `${DEFAULT_ENDPOINTS.oktaUrl}/oauth2`,
   );
 });

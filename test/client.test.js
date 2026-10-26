@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// The MyFoncia client against a fake Okta + API: no network.
+// The MyFoncia client against a fake Okta + GraphQL API: no network.
 // -----------------------------------------------------------------------------
 
 import { test } from 'node:test';
@@ -8,31 +8,75 @@ import { createHash } from 'node:crypto';
 import { createFonciaClient } from '../src/foncia/client.js';
 import { DEFAULT_ENDPOINTS } from '../src/foncia/endpoints.js';
 import { ERROR_CODES } from '../src/foncia/errors.js';
+import { ACCOUNT } from './helpers/fakeFoncia.js';
 
-const endpoints = { ...DEFAULT_ENDPOINTS, clientId: 'client-1', apiUrl: 'https://api.test' };
+const endpoints = { ...DEFAULT_ENDPOINTS, apiUrl: 'https://api.test' };
+const NOW = Date.parse('2026-10-26T10:00:00Z');
 
 const json = (status, body) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-/** A fake Okta + MyFoncia API, recording every request. */
+const edges = (nodes) => ({ edges: nodes.map((node) => ({ node })) });
+
+// What the fake API answers, per GraphQL operation.
+const DATA = {
+  getBasicAccounts: () => ({
+    accounts: [
+      {
+        uuid: 'A1',
+        number: '0042',
+        quality: 'CO_OWNER',
+        building: { name: 'Les Lilas', address: { address1: '12 rue des Lilas' } },
+      },
+    ],
+  }),
+  getDashboardAccountingBalance: () => ({
+    account: {
+      accounting: {
+        currentBalance: { value: -12.5, currency: 'EUR' },
+        lines: edges([
+          { id: 'L1', dueDate: '2026-11-01', amount: { __typename: 'Debit', value: 450 } },
+        ]),
+      },
+    },
+  }),
+  getAccountDocuments: ({ customerPortalCategory }) => ({
+    account: {
+      documents: edges([
+        { id: `D-${customerPortalCategory}`, originalFilename: 'x.pdf', category: 'invoices' },
+        { id: 'D-shared', originalFilename: 'shared.pdf', category: 'generalAssembly' },
+      ]),
+    },
+  }),
+  getTickets: () => ({ tickets: edges([{ id: 'T1', ticketNumber: '9', status: 'OPEN' }]) }),
+  getGeneralAssemblies: () => ({
+    account: {
+      nextGeneralAssembly: { id: 'G1', label: 'AGO', officialMeeting: { date: '2027-03-15' } },
+      nextGeneralAssemblies: [{ id: 'G1', label: 'AGO', officialMeeting: { date: '2027-03-15' } }],
+    },
+  }),
+};
+
+/** A fake Okta + MyFoncia GraphQL API, recording every request. */
 function fakeServer(options = {}) {
-  const state = { requests: [], issued: 0, challenge: null, refreshRefused: false, ...options };
+  const state = { requests: [], operations: [], issued: 0, challenge: null, ...options };
   const fetch = async (url, init = {}) => {
-    const { pathname, searchParams } = new URL(url);
+    const { origin, pathname, searchParams } = new URL(url);
     state.requests.push({ url, init, pathname });
     if (state.offline) {
       throw new TypeError('fetch failed');
     }
-    if (pathname === '/api/v1/authn') {
+    if (`${origin}${pathname}` === `${endpoints.oktaUrl}/api/v1/authn`) {
       const { username, password } = JSON.parse(init.body);
       if (password !== 'good') {
         return json(401, { errorCode: 'E0000004' });
       }
       return json(200, { status: state.authnStatus ?? 'SUCCESS', sessionToken: `st-${username}` });
     }
-    if (pathname === '/oauth2/v1/authorize') {
+    if (pathname === '/oauth2/millenium/v1/authorize') {
       assert.equal(init.redirect, 'manual');
-      assert.equal(searchParams.get('client_id'), 'client-1');
+      assert.equal(searchParams.get('client_id'), endpoints.clientId);
+      assert.equal(searchParams.get('prompt'), 'none');
       assert.equal(searchParams.get('code_challenge_method'), 'S256');
       state.challenge = searchParams.get('code_challenge');
       const back = new URL(endpoints.redirectUri);
@@ -44,7 +88,7 @@ function fakeServer(options = {}) {
       }
       return new Response(null, { status: 302, headers: { Location: back.toString() } });
     }
-    if (pathname === '/oauth2/v1/token') {
+    if (pathname === '/oauth2/millenium/v1/token') {
       const form = new URLSearchParams(init.body.toString());
       if (form.get('grant_type') === 'authorization_code') {
         const challenge = createHash('sha256')
@@ -61,50 +105,88 @@ function fakeServer(options = {}) {
         expires_in: 3600,
       });
     }
-    if (pathname === '/accounts') {
-      const token = init.headers.Authorization;
-      if (state.revoked?.includes(token)) {
-        return json(401, {});
+    if (url === 'https://api.test/graphql') {
+      const { operationName, query, variables } = JSON.parse(init.body);
+      assert.match(query, new RegExp(`query ${operationName}\\b`));
+      state.operations.push({ operationName, variables });
+      if (state.revoked?.includes(init.headers.Authorization)) {
+        return json(200, {
+          errors: [{ message: 'nope', extensions: { code: 'UNAUTHENTICATED' } }],
+        });
       }
-      return state.accountsStatus
-        ? json(state.accountsStatus, {})
-        : json(200, { items: [{ id: 'A1', label: 'Lot 1', solde: '-12,50' }] });
-    }
-    if (pathname === '/accounts/A1/documents') {
-      return json(200, [{ id: 'D1', title: 'Appel de fonds' }]);
+      if (state.graphqlStatus) {
+        return json(state.graphqlStatus, {});
+      }
+      if (state.graphqlError) {
+        return json(200, { errors: [{ message: state.graphqlError }], data: null });
+      }
+      return json(200, { data: DATA[operationName](variables) });
     }
     return json(404, {});
   };
   return { state, fetch };
 }
 
-const client = (server, now = () => 0, password = 'good') =>
+const client = (server, now = () => NOW, password = 'good') =>
   createFonciaClient({ username: 'me@example.com', password, endpoints, fetch: server.fetch, now });
 
-test('signs in through Okta with PKCE, then reads the accounts', async () => {
+test('signs in like the web app (authn, authorize with PKCE, token), then reads the accounts', async () => {
   const server = fakeServer();
   const accounts = await client(server).getAccounts();
   assert.deepEqual(accounts, [
-    { id: 'A1', name: 'Lot 1', address: null, role: 'unknown', balance: -12.5 },
+    {
+      id: 'A1',
+      number: '0042',
+      quality: 'CO_OWNER',
+      name: 'Les Lilas',
+      address: '12 rue des Lilas',
+      role: 'owner',
+    },
   ]);
   assert.deepEqual(
     server.state.requests.map((r) => r.pathname),
-    ['/api/v1/authn', '/oauth2/v1/authorize', '/oauth2/v1/token', '/accounts'],
+    ['/api/v1/authn', '/oauth2/millenium/v1/authorize', '/oauth2/millenium/v1/token', '/graphql'],
   );
   assert.equal(server.state.requests.at(-1).init.headers.Authorization, 'Bearer at-1');
 });
 
+test('reads the accounting, the documents, the tickets and the general assemblies', async () => {
+  const server = fakeServer();
+  const foncia = client(server);
+  assert.deepEqual(await foncia.getSummary(ACCOUNT), {
+    balance: -12.5,
+    due: { amount: 450, date: '2026-11-01', label: null },
+  });
+  const documents = await foncia.getDocuments(ACCOUNT);
+  assert.deepEqual(
+    documents.map((d) => d.id),
+    ['D-CO_OWNER', 'D-shared', 'D-BUILDING'],
+    'both spaces of a co-owner, without duplicates',
+  );
+  assert.equal((await foncia.getIncidents(ACCOUNT))[0].status, 'open');
+  assert.deepEqual(await foncia.getMeetings(ACCOUNT), [
+    { id: 'G1', title: 'AGO', date: '2027-03-15' },
+  ]);
+  assert.deepEqual(await foncia.getMeetings({ ...ACCOUNT, quality: 'TENANT' }), []);
+  const spaces = server.state.operations
+    .filter((o) => o.operationName === 'getAccountDocuments')
+    .map((o) => o.variables.customerPortalCategory);
+  assert.deepEqual(spaces, ['CO_OWNER', 'BUILDING']);
+  await foncia.getDocuments({ ...ACCOUNT, quality: 'TENANT' });
+  assert.equal(server.state.operations.at(-1).variables.customerPortalCategory, 'TENANT');
+});
+
 test('the token is reused, then renewed with the refresh token', async () => {
   const server = fakeServer();
-  let now = 0;
+  let now = NOW;
   const foncia = client(server, () => now);
   await foncia.getAccounts();
-  await foncia.getDocuments('A1');
+  await foncia.getIncidents(ACCOUNT);
   assert.equal(server.state.issued, 1, 'one sign-in for two reads');
 
-  now = 3600 * 1000; // expired
+  now += 3600 * 1000; // expired
   await foncia.getAccounts();
-  const tokenCalls = server.state.requests.filter((r) => r.pathname === '/oauth2/v1/token');
+  const tokenCalls = server.state.requests.filter((r) => r.pathname.endsWith('/v1/token'));
   assert.equal(tokenCalls.length, 2);
   assert.equal(
     new URLSearchParams(tokenCalls[1].init.body.toString()).get('grant_type'),
@@ -119,15 +201,15 @@ test('the token is reused, then renewed with the refresh token', async () => {
 
 test('a refused refresh token falls back to a full sign-in', async () => {
   const server = fakeServer({ refreshRefused: true });
-  let now = 0;
+  let now = NOW;
   const foncia = client(server, () => now);
   await foncia.getAccounts();
-  now = 3600 * 1000;
+  now += 3600 * 1000;
   await foncia.getAccounts();
   assert.equal(server.state.requests.filter((r) => r.pathname === '/api/v1/authn').length, 2);
 });
 
-test('a 401 from the API signs in again once', async () => {
+test('an UNAUTHENTICATED answer signs in again once', async () => {
   const server = fakeServer({ revoked: ['Bearer at-1'] });
   const accounts = await client(server).getAccounts();
   assert.equal(accounts.length, 1);
@@ -140,47 +222,33 @@ test('the failures carry a code the user can be told about', async () => {
       () => null,
       (err) => err.code,
     );
+  const read = (options, password) =>
+    client(fakeServer(options), undefined, password).getAccounts();
+  assert.equal(await codeOf(read({}, 'bad')), ERROR_CODES.CREDENTIALS);
+  assert.equal(await codeOf(read({ authnStatus: 'MFA_REQUIRED' })), ERROR_CODES.MFA);
+  assert.equal(await codeOf(read({ authnStatus: 'LOCKED_OUT' })), ERROR_CODES.LOCKED);
+  assert.equal(await codeOf(read({ authorizeError: 'access_denied' })), ERROR_CODES.CREDENTIALS);
+  assert.equal(await codeOf(read({ offline: true })), ERROR_CODES.NETWORK);
+  assert.equal(await codeOf(read({ graphqlStatus: 429 })), ERROR_CODES.RATE_LIMITED);
+  assert.equal(await codeOf(read({ graphqlStatus: 500 })), ERROR_CODES.API);
+  assert.equal(await codeOf(read({ graphqlError: 'Cannot query field' })), ERROR_CODES.API);
   assert.equal(
-    await codeOf(client(fakeServer(), undefined, 'bad').getAccounts()),
+    await codeOf(read({ revoked: ['Bearer at-1', 'Bearer at-2'] })),
     ERROR_CODES.CREDENTIALS,
-  );
-  assert.equal(
-    await codeOf(client(fakeServer({ authnStatus: 'MFA_REQUIRED' })).getAccounts()),
-    ERROR_CODES.MFA,
-  );
-  assert.equal(
-    await codeOf(client(fakeServer({ authnStatus: 'LOCKED_OUT' })).getAccounts()),
-    ERROR_CODES.LOCKED,
-  );
-  assert.equal(
-    await codeOf(client(fakeServer({ authorizeError: 'access_denied' })).getAccounts()),
-    ERROR_CODES.CREDENTIALS,
-  );
-  assert.equal(
-    await codeOf(client(fakeServer({ offline: true })).getAccounts()),
-    ERROR_CODES.NETWORK,
-  );
-  assert.equal(
-    await codeOf(client(fakeServer({ accountsStatus: 429 })).getAccounts()),
-    ERROR_CODES.RATE_LIMITED,
-  );
-  assert.equal(
-    await codeOf(client(fakeServer({ accountsStatus: 500 })).getAccounts()),
-    ERROR_CODES.API,
   );
   const noClientId = createFonciaClient({
     username: 'me@example.com',
     password: 'good',
-    endpoints: DEFAULT_ENDPOINTS,
+    endpoints: { ...endpoints, clientId: '' },
     fetch: fakeServer().fetch,
   });
   assert.equal(await codeOf(noClientId.getAccounts()), ERROR_CODES.NOT_CONFIGURED);
 });
 
 test('the password and the tokens never reach an error message', async () => {
-  const server = fakeServer({ accountsStatus: 500 });
-  const err = await client(server)
+  const err = await client(fakeServer({ graphqlError: 'boom' }))
     .getAccounts()
     .catch((e) => e);
+  assert.match(err.message, /getBasicAccounts: boom/);
   assert.doesNotMatch(err.message, /good|at-1|st-me/);
 });

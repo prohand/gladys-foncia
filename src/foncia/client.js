@@ -5,29 +5,43 @@
 // browser:
 //   1. POST /api/v1/authn with the e-mail and password -> a one-time
 //      `sessionToken` (or a status saying why not: MFA, locked account…);
-//   2. GET /oauth2/v1/authorize with that sessionToken and a PKCE challenge,
-//      redirects NOT followed: Okta answers with a redirect to the web app
-//      whose query carries the authorization `code`;
-//   3. POST /oauth2/v1/token with the code and the PKCE verifier -> access
-//      token (and a refresh token, thanks to `offline_access`).
-// Afterwards the refresh token renews the access token; the password is only
-// replayed when the refresh token is refused.
+//   2. GET /oauth2/millenium/v1/authorize with that sessionToken, `prompt=none`
+//      and a PKCE challenge, redirects NOT followed: Okta answers with a
+//      redirect to the web app whose query carries the authorization `code`;
+//   3. POST /oauth2/millenium/v1/token with the code and the PKCE verifier ->
+//      access token (and a refresh token, thanks to `offline_access`).
+// That is what the web app itself does (`signInWithCredentials`, then
+// `token.getWithoutPrompt`), minus the hidden iframe. Afterwards the refresh
+// token renews the access token; the password is only replayed when the
+// refresh token is refused.
+//
+// The account is then read through GraphQL (src/foncia/queries.js).
 //
 // The password and the tokens are never logged.
 // -----------------------------------------------------------------------------
 
 import { createHash, randomBytes } from 'node:crypto';
 import { createLogger } from '@gladysassistant/integration-sdk';
-import { apiPath, oauthBase } from './endpoints.js';
+import { graphqlUrl, oauthBase } from './endpoints.js';
 import { ERROR_CODES, FonciaError } from './errors.js';
 import {
   normalizeAccount,
+  normalizeAccounting,
   normalizeDocument,
-  normalizeIncident,
   normalizeList,
   normalizeMeeting,
-  normalizeSummary,
+  normalizeTicket,
 } from './normalize.js';
+import {
+  ACCOUNTING,
+  ACCOUNTS,
+  DOCUMENTS,
+  DOCUMENT_SPACES,
+  GENERAL_ASSEMBLIES,
+  QUALITIES,
+  TICKETS,
+  TICKET_STATUSES,
+} from './queries.js';
 
 const logger = createLogger({ name: 'foncia-client' });
 
@@ -35,6 +49,10 @@ const logger = createLogger({ name: 'foncia-client' });
 // leaves with a token that dies on the way.
 const EXPIRY_MARGIN_MS = 60_000;
 const REQUEST_TIMEOUT_MS = 20_000;
+
+// How many of the latest entries each sync reads: enough to see what is new
+// between two syncs, few enough to stay a light client of Foncia's API.
+const PAGE_SIZE = { ACCOUNTS: 50, LINES: 20, DOCUMENTS: 20, TICKETS: 50 };
 
 /**
  * @param {object} options
@@ -109,6 +127,7 @@ export function createFonciaClient({
       client_id: endpoints.clientId,
       response_type: 'code',
       response_mode: 'query',
+      prompt: 'none',
       scope: endpoints.scopes.join(' '),
       redirect_uri: endpoints.redirectUri,
       state,
@@ -200,21 +219,40 @@ export function createFonciaClient({
     return tokens.accessToken;
   }
 
-  // GET one API path. A 401 means the token died early (revoked, password
-  // changed elsewhere): one fresh sign-in, then the error is the user's to see.
-  async function get(name, accountId, retried = false) {
+  // One GraphQL operation. An expired or revoked token (HTTP 401, or an
+  // UNAUTHENTICATED error) gets one fresh sign-in, then the error is the
+  // user's to see.
+  async function graphql(query, variables, retried = false) {
+    const operationName = /(?:query|mutation) (\w+)/.exec(query)[1];
     const token = await accessToken();
-    const response = await request(apiPath(endpoints, name, accountId), {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    const response = await request(graphqlUrl(endpoints), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ operationName, query, variables }),
     });
-    if (response.status === 401 && !retried) {
+    const body = response.status === 401 ? null : await readJson(response, operationName);
+    const errors = body?.errors ?? [];
+    const unauthenticated =
+      response.status === 401 ||
+      errors.some((error) => error?.extensions?.code === 'UNAUTHENTICATED');
+    if (unauthenticated && !retried) {
       tokens = null;
-      return get(name, accountId, true);
+      return graphql(query, variables, true);
     }
-    if (response.status === 401) {
-      throw new FonciaError(ERROR_CODES.CREDENTIALS, `${name}: HTTP 401`);
+    if (unauthenticated) {
+      throw new FonciaError(ERROR_CODES.CREDENTIALS, `${operationName}: unauthenticated`);
     }
-    return readJson(response, name);
+    if (errors.length > 0 && !body?.data) {
+      throw new FonciaError(
+        ERROR_CODES.API,
+        `${operationName}: ${errors.map((error) => error?.message).join('; ')}`,
+      );
+    }
+    return body?.data ?? {};
   }
 
   return {
@@ -227,35 +265,59 @@ export function createFonciaClient({
     },
 
     async getAccounts() {
-      return normalizeList(await get('accounts'), normalizeAccount, 'accounts', 'comptes');
+      const data = await graphql(ACCOUNTS, { itemsPerPage: PAGE_SIZE.ACCOUNTS, pageNumber: 1 });
+      return normalizeList(data.accounts, normalizeAccount);
     },
 
-    async getSummary(accountId) {
-      return normalizeSummary(await get('summary', accountId));
+    /** Balance and next amount due of one account. */
+    async getSummary(account) {
+      const data = await graphql(ACCOUNTING, { uuid: account.id, first: PAGE_SIZE.LINES });
+      const today = new Date(now()).toISOString().slice(0, 10);
+      return normalizeAccounting(data.account?.accounting, today);
     },
 
-    async getDocuments(accountId) {
-      return normalizeList(await get('documents', accountId), normalizeDocument, 'documents');
+    /** The latest documents of every space the account can read, newest first. */
+    async getDocuments(account) {
+      const spaces = DOCUMENT_SPACES[account.quality] ?? DOCUMENT_SPACES[QUALITIES.CO_OWNER];
+      const documents = new Map();
+      for (const space of spaces) {
+        const data = await graphql(DOCUMENTS, {
+          accountUuid: account.id,
+          first: PAGE_SIZE.DOCUMENTS,
+          customerPortalCategory: space,
+        });
+        for (const document of normalizeList(data.account?.documents, normalizeDocument)) {
+          documents.set(document.id, document);
+        }
+      }
+      return [...documents.values()];
     },
 
-    async getIncidents(accountId) {
-      return normalizeList(
-        await get('incidents', accountId),
-        normalizeIncident,
-        'incidents',
-        'sinistres',
-        'interventions',
-      );
+    /** The requests made to the manager (repairs, incidents, questions). */
+    async getIncidents(account) {
+      const data = await graphql(TICKETS, {
+        accountUuid: account.id,
+        first: PAGE_SIZE.TICKETS,
+        status: TICKET_STATUSES,
+      });
+      return normalizeList(data.tickets, normalizeTicket);
     },
 
-    async getMeetings(accountId) {
-      return normalizeList(
-        await get('meetings', accountId),
-        normalizeMeeting,
-        'meetings',
-        'assemblies',
-        'assemblees',
-      );
+    /** The general assemblies to come: co-owners only. */
+    async getMeetings(account) {
+      if (account.quality !== QUALITIES.CO_OWNER) {
+        return [];
+      }
+      const data = await graphql(GENERAL_ASSEMBLIES, { accountUuid: account.id });
+      const meetings = [
+        data.account?.nextGeneralAssembly,
+        ...(data.account?.nextGeneralAssemblies ?? []),
+      ];
+      const unique = new Map();
+      for (const meeting of normalizeList(meetings.filter(Boolean), normalizeMeeting)) {
+        unique.set(meeting.id, meeting);
+      }
+      return [...unique.values()];
     },
   };
 }

@@ -38,13 +38,13 @@ in particular how the MyFoncia password and the Okta tokens are handled.
 
 Out of scope: Gladys Assistant itself (report to
 [GladysAssistant/Gladys](https://github.com/GladysAssistant/Gladys/security)),
-and Foncia's own services (myfoncia.fr, its Okta sign-in, its API): report those
+and Foncia's own services (my-foncia.fonciamillenium.net, its Okta sign-in, its API): report those
 to Foncia.
 
 ## What the integration does with your credentials
 
 - The MyFoncia password is stored by Gladys in a `secret` field and only sent
-  to Foncia's sign-in service (`foncia.okta-emea.com`), over HTTPS.
+  to Foncia's sign-in service (`login.my-foncia.fonciamillenium.net`), over HTTPS.
 - The access and refresh tokens stay in memory, never on disk.
 - Neither the password nor the tokens are ever written to the logs.
 - The only file the integration writes is `/data/foncia-state.json`: ids of the

@@ -1,11 +1,9 @@
 // -----------------------------------------------------------------------------
-// From MyFoncia JSON to the few shapes the integration works with.
+// From MyFoncia GraphQL answers to the few shapes the integration works with.
 //
-// The API is undocumented and its field names are French in some places,
-// English in others, nested in some answers and flat in others. Every read goes
-// through here, tolerant by design: a field found under one of its known names
-// is used, a field missing is `null`, and an entry the integration cannot even
-// identify is dropped — never a crash that would stop the whole sync.
+// The API is undocumented: every read goes through here, tolerant by design.
+// A field missing is `null`, an entry the integration cannot identify is
+// dropped — never a crash that would stop the whole sync.
 // -----------------------------------------------------------------------------
 
 /** Account roles. */
@@ -27,31 +25,39 @@ export const INCIDENT_STATUSES = {
   CLOSED: 'closed',
 };
 
-/**
- * The list an answer carries: the answer itself, or the first array found
- * under one of the usual wrappers (`items`, `data`, `results`…).
- */
-export function listOf(payload, ...names) {
-  if (Array.isArray(payload)) {
-    return payload;
+// Document.category of MyFoncia -> trigger category. Anything else is "other".
+const DOCUMENT_CATEGORY_MAP = {
+  provisionCalls: DOCUMENT_CATEGORIES.CALL_FOR_FUNDS,
+  dueNotice: DOCUMENT_CATEGORIES.CALL_FOR_FUNDS,
+  generalAssembly: DOCUMENT_CATEGORIES.MEETING,
+  period_generalAssembly: DOCUMENT_CATEGORIES.MEETING,
+  councilMeetingReport: DOCUMENT_CATEGORIES.MEETING,
+  accountSituation: DOCUMENT_CATEGORIES.STATEMENT,
+  statementGeneralExpenses: DOCUMENT_CATEGORIES.STATEMENT,
+  expensesRepartition: DOCUMENT_CATEGORIES.STATEMENT,
+  propertyExpenseStatement: DOCUMENT_CATEGORIES.STATEMENT,
+  tenantStatementOfAccount: DOCUMENT_CATEGORIES.STATEMENT,
+  regularization_Rental_Management: DOCUMENT_CATEGORIES.STATEMENT,
+  invoices: DOCUMENT_CATEGORIES.INVOICE,
+  propertyRepairAccountingInvoices: DOCUMENT_CATEGORIES.INVOICE,
+};
+
+// Ticket.status (TicketStatusEnum) -> trigger status.
+const TICKET_STATUS_MAP = {
+  OPEN: INCIDENT_STATUSES.OPEN,
+  WAITING_FOR_FIRST_CLIENT_RESPONSE: INCIDENT_STATUSES.OPEN,
+  WORK_IN_PROGRESS: INCIDENT_STATUSES.IN_PROGRESS,
+  PROCESSED: INCIDENT_STATUSES.IN_PROGRESS,
+  FINISHED: INCIDENT_STATUSES.CLOSED,
+  CLOSED: INCIDENT_STATUSES.CLOSED,
+};
+
+/** The nodes of a GraphQL connection (`{ edges: [{ node }] }`), or the list itself. */
+export function nodesOf(connection) {
+  if (Array.isArray(connection)) {
+    return connection;
   }
-  if (!payload || typeof payload !== 'object') {
-    return [];
-  }
-  for (const name of [...names, 'items', 'data', 'results', 'content', 'list']) {
-    const value = payload[name];
-    if (Array.isArray(value)) {
-      return value;
-    }
-    // `{ data: { items: [...] } }`
-    if (value && typeof value === 'object') {
-      const nested = listOf(value, ...names);
-      if (nested.length > 0) {
-        return nested;
-      }
-    }
-  }
-  return [];
+  return (connection?.edges ?? []).map((edge) => edge?.node).filter(Boolean);
 }
 
 /** The first defined, non-empty value among the given dotted paths. */
@@ -70,7 +76,7 @@ export function first(object, ...paths) {
 
 /**
  * An amount in euros: a number, a string written the French way
- * ("-1 234,56 €"), or `{ amount | value, currency }`. `null` when unreadable.
+ * ("-1 234,56 €"), or `{ value | amount, currency }`. `null` when unreadable.
  */
 export function toAmount(value) {
   if (value === null || value === undefined || value === '') {
@@ -80,7 +86,7 @@ export function toAmount(value) {
     return Number.isFinite(value) ? round2(value) : null;
   }
   if (typeof value === 'object') {
-    return toAmount(first(value, 'amount', 'value', 'montant'));
+    return toAmount(first(value, 'value', 'amount'));
   }
   const text = String(value)
     .replace(/[\s\u00a0\u202f\u20ac]|EUR/gi, '')
@@ -115,143 +121,113 @@ export function daysBetween(today, date) {
   );
 }
 
+/** One `accounts` entry. */
 export function normalizeAccount(raw) {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== 'object' || !raw.uuid) {
     return null;
   }
-  const id = first(raw, 'id', 'accountId', 'account_id', 'uuid', 'reference', 'numero');
-  if (id === null) {
-    return null;
-  }
-  const address = first(
-    raw,
-    'address.label',
-    'address.fullAddress',
-    'adresse.libelle',
-    'building.address',
-    'address',
-    'adresse',
-  );
-  const name = first(raw, 'label', 'name', 'title', 'libelle', 'building.name', 'lot.label');
+  const building = raw.building ?? raw.buildings?.[0] ?? null;
+  const street = building?.address
+    ? [building.address.address1, building.address.zipCode, building.address.city]
+        .filter(Boolean)
+        .join(' ')
+    : null;
   return {
-    id: String(id),
-    name: String(name ?? (typeof address === 'string' ? address : `Foncia ${id}`)),
-    address: typeof address === 'string' ? address : null,
-    role: toRole(first(raw, 'role', 'type', 'profile', 'accountType', 'typeCompte')),
-    balance: toAmount(first(raw, 'balance', 'solde', 'accountBalance', 'soldeCompte')),
+    id: String(raw.uuid),
+    number: raw.number ? String(raw.number) : null,
+    quality: raw.quality ?? null,
+    name: String(building?.name || street || `Foncia ${raw.number ?? raw.uuid}`),
+    address: street || null,
+    role: toRole(raw.quality),
   };
 }
 
-export function normalizeSummary(raw) {
-  const source = raw && typeof raw === 'object' ? raw : {};
-  const due = first(source, 'nextPayment', 'nextDue', 'prochainAppel', 'nextCallForFunds', 'due');
-  const meeting = first(source, 'nextMeeting', 'nextGeneralAssembly', 'prochaineAG');
+/**
+ * The `accounting` of an account: the current balance, and the next amount
+ * due — the earliest debit line whose due date is today or later.
+ *
+ * @param {object} raw `account.accounting`
+ * @param {string} today YYYY-MM-DD
+ */
+export function normalizeAccounting(raw, today) {
+  const lines = nodesOf(raw?.lines);
+  const dues = lines
+    .filter((line) => line.amount?.__typename !== 'Credit')
+    .map((line) => ({
+      amount: toAmount(line.amount),
+      date: toDate(line.dueDate),
+      label: line.label ?? null,
+    }))
+    .filter((due) => due.date && due.date >= today && due.amount > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
   return {
-    balance: toAmount(first(source, 'balance', 'solde', 'accountBalance', 'soldeCompte')),
-    due: due
-      ? {
-          amount: toAmount(first(due, 'amount', 'montant', 'value') ?? due),
-          date: toDate(first(due, 'dueDate', 'date', 'dateEcheance', 'echeance')),
-        }
-      : null,
-    nextMeetingDate: meeting ? toDate(first(meeting, 'date', 'startDate') ?? meeting) : null,
+    balance: toAmount(raw?.currentBalance),
+    due: dues[0] ?? null,
   };
 }
 
+/** One `documents` node. */
 export function normalizeDocument(raw) {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== 'object' || !raw.id) {
     return null;
   }
-  const id = first(raw, 'id', 'documentId', 'uuid', 'reference');
-  if (id === null) {
-    return null;
-  }
-  const title = String(first(raw, 'title', 'label', 'name', 'libelle', 'fileName') ?? 'Document');
-  const kind = first(raw, 'category', 'type', 'documentType', 'typeDocument', 'nature');
+  const filename = String(raw.originalFilename ?? 'Document');
   return {
-    id: String(id),
-    title,
-    category: toDocumentCategory(`${kind ?? ''} ${title}`),
-    date: toDate(first(raw, 'date', 'publicationDate', 'createdAt', 'datePublication')),
+    id: String(raw.id),
+    // The file name is what the web app shows: drop the extension.
+    title: filename.replace(/\.[a-z0-9]{2,5}$/i, ''),
+    category: DOCUMENT_CATEGORY_MAP[raw.category] ?? DOCUMENT_CATEGORIES.OTHER,
+    date: toDate(raw.createdAt),
   };
 }
 
-export function normalizeIncident(raw) {
-  if (!raw || typeof raw !== 'object') {
+/** One `tickets` node: a request made to the manager (repair, incident, question…). */
+export function normalizeTicket(raw) {
+  if (!raw || typeof raw !== 'object' || !raw.id) {
     return null;
   }
-  const id = first(raw, 'id', 'incidentId', 'uuid', 'reference', 'numero');
-  if (id === null) {
-    return null;
-  }
+  const topic = String(raw.category ?? '')
+    .replace(/^(CO_OWNER|TENANT|LANDLORD)_/, '')
+    .replace(/_/g, ' ')
+    .toLowerCase();
+  const number = raw.ticketNumber ? `#${raw.ticketNumber}` : '';
   return {
-    id: String(id),
-    title: String(first(raw, 'title', 'label', 'subject', 'libelle', 'description') ?? 'Incident'),
-    status: toIncidentStatus(first(raw, 'status', 'statut', 'state', 'etat')),
-    date: toDate(first(raw, 'updatedAt', 'date', 'createdAt', 'dateCreation')),
+    id: String(raw.id),
+    title: [number, topic].filter(Boolean).join(' ') || 'Ticket',
+    status: TICKET_STATUS_MAP[raw.status] ?? INCIDENT_STATUSES.OPEN,
+    date: toDate(raw.finishedAt ?? raw.createdAt),
   };
 }
 
+/** One general assembly (MissionGeneralAssembly). */
 export function normalizeMeeting(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-  const date = toDate(first(raw, 'date', 'startDate', 'meetingDate', 'dateAG'));
-  const id = first(raw, 'id', 'meetingId', 'uuid', 'reference') ?? date;
-  if (id === null) {
+  if (!raw || typeof raw !== 'object' || !raw.id) {
     return null;
   }
   return {
-    id: String(id),
-    title: String(first(raw, 'title', 'label', 'type', 'libelle') ?? 'General assembly'),
-    date,
+    id: String(raw.id),
+    title: String(raw.label ?? 'General assembly'),
+    date: toDate(raw.officialMeeting?.date),
   };
 }
 
 /** Normalize a list, dropping what could not be identified. */
-export function normalizeList(payload, normalize, ...names) {
-  return listOf(payload, ...names)
+export function normalizeList(list, normalize) {
+  return nodesOf(list)
     .map(normalize)
     .filter((entry) => entry !== null);
 }
 
-function toRole(value) {
-  const text = String(value ?? '').toLowerCase();
-  if (/locat|tenant|renter/.test(text)) {
-    return ROLES.TENANT;
+function toRole(quality) {
+  switch (quality) {
+    case 'CO_OWNER':
+    case 'LANDLORD':
+      return ROLES.OWNER;
+    case 'TENANT':
+      return ROLES.TENANT;
+    default:
+      return ROLES.UNKNOWN;
   }
-  if (/propri|owner|copro|bailleur|landlord/.test(text)) {
-    return ROLES.OWNER;
-  }
-  return ROLES.UNKNOWN;
-}
-
-function toDocumentCategory(text) {
-  const value = text.toLowerCase();
-  if (/appel|fund|call/.test(value)) {
-    return DOCUMENT_CATEGORIES.CALL_FOR_FUNDS;
-  }
-  if (/\bag\b|assembl|convoc|proc[eè]s|minutes|meeting/.test(value)) {
-    return DOCUMENT_CATEGORIES.MEETING;
-  }
-  if (/relev|statement|d[ée]compte|r[ée]gul|charges/.test(value)) {
-    return DOCUMENT_CATEGORIES.STATEMENT;
-  }
-  if (/factur|invoice|quittance|receipt|avis d'[ée]ch[ée]ance/.test(value)) {
-    return DOCUMENT_CATEGORIES.INVOICE;
-  }
-  return DOCUMENT_CATEGORIES.OTHER;
-}
-
-function toIncidentStatus(value) {
-  const text = String(value ?? '').toLowerCase();
-  if (/clos|clotur|cl[ôo]tur|termin|r[ée]solu|resolved|done|closed|finish|complet/.test(text)) {
-    return INCIDENT_STATUSES.CLOSED;
-  }
-  if (/cours|progress|planif|schedul|assign|pris en charge|intervention/.test(text)) {
-    return INCIDENT_STATUSES.IN_PROGRESS;
-  }
-  return INCIDENT_STATUSES.OPEN;
 }
 
 function round2(number) {

@@ -55,10 +55,10 @@ const MESSAGES = {
     es: 'Esta cuenta de MyFoncia pide un segundo factor, que la integración no puede responder.',
   },
   [ERROR_CODES.LOCKED]: {
-    en: 'The MyFoncia account is locked: unlock it on myfoncia.fr first.',
-    fr: "Le compte MyFoncia est bloqué : débloquez-le d'abord sur myfoncia.fr.",
-    de: 'Das MyFoncia-Konto ist gesperrt: Entsperre es zuerst auf myfoncia.fr.',
-    es: 'La cuenta de MyFoncia está bloqueada: desbloquéela primero en myfoncia.fr.',
+    en: 'The MyFoncia account is locked: unlock it on my-foncia.fonciamillenium.net first.',
+    fr: "Le compte MyFoncia est bloqué : débloquez-le d'abord sur my-foncia.fonciamillenium.net.",
+    de: 'Das MyFoncia-Konto ist gesperrt: Entsperre es zuerst auf my-foncia.fonciamillenium.net.',
+    es: 'La cuenta de MyFoncia está bloqueada: desbloquéela primero en my-foncia.fonciamillenium.net.',
   },
   [ERROR_CODES.RATE_LIMITED]: {
     en: 'MyFoncia asks to slow down: the next sync will try again.',

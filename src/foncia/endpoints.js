@@ -1,45 +1,35 @@
 // -----------------------------------------------------------------------------
 // Where MyFoncia lives.
 //
-// Foncia publishes no API. The MyFoncia web app (https://myfoncia.fr) signs its
-// users in through Okta — the `foncia.okta-emea.com` organization answers the
-// standard OpenID discovery — then reads the account through a JSON API with
-// the access token it got.
+// Foncia publishes no API. These values are the ones the MyFoncia web app
+// (https://my-foncia.fonciamillenium.net, where myfoncia.fr redirects) loads
+// from its own `/config.js` (`oktaConfig` and `graphql.url`):
+//   - sign-in: the Okta organization `login.my-foncia.fonciamillenium.net`,
+//     authorization server `millenium`, client of the web app;
+//   - data: one GraphQL endpoint, `<apiUrl>/graphql`, called with the Okta
+//     access token as a Bearer token.
 //
-// Everything this integration knows about that API is in this file, so the day
-// Foncia moves something, there is one place to fix. The paths are relative to
-// `apiUrl`; `{account}` is replaced by the account id.
-//
-// The two values below that are NOT confirmed against a live account (the
-// Okta client id of the web app, and the API base URL) can be overridden from
-// the "Advanced" section of the configuration, without a new image: see
-// docs/en.md, "Advanced settings".
+// Everything this integration knows about Foncia's addresses is in this file,
+// so the day Foncia moves something there is one place to fix. The client id
+// and the API URL can also be overridden from the "Advanced settings" of the
+// configuration, without a new image.
 // -----------------------------------------------------------------------------
 
 export const DEFAULT_ENDPOINTS = {
-  // Okta organization of Foncia (public OpenID discovery document).
-  oktaUrl: 'https://foncia.okta-emea.com',
-  // Authorization server: '' is the Okta organization server (/oauth2/v1/...).
-  authorizationServer: '',
-  // Client id of the MyFoncia web app. To confirm: read it from the app's
-  // config.js, or from the `client_id` of its /authorize request.
-  clientId: '',
+  oktaUrl: 'https://login.my-foncia.fonciamillenium.net',
+  // Custom authorization server of the web app (issuer `<oktaUrl>/oauth2/millenium`).
+  authorizationServer: 'millenium',
+  clientId: '0oalslzunnRGZbcuX417',
   // Where Okta sends the browser back; only read from the redirect, never opened.
-  redirectUri: 'https://myfoncia.fr/login/callback',
+  redirectUri: 'https://my-foncia.fonciamillenium.net/login/callback',
+  // The web app also asks for okta.myAccount.password.*, to change the
+  // password: not needed to read the account.
   scopes: ['openid', 'profile', 'email', 'offline_access'],
-  // To confirm: the API host the web app calls once signed in.
-  apiUrl: 'https://myfoncia-gateway.fonciamillenium.net',
-  paths: {
-    accounts: '/accounts',
-    summary: '/accounts/{account}/summary',
-    documents: '/accounts/{account}/documents',
-    incidents: '/accounts/{account}/incidents',
-    meetings: '/accounts/{account}/meetings',
-  },
+  apiUrl: 'https://customer-portal-gateway.prod.fonciamillenium.net',
 };
 
 // The page a user is sent to from the widget and the documentation.
-export const MYFONCIA_URL = 'https://myfoncia.fr';
+export const MYFONCIA_URL = 'https://my-foncia.fonciamillenium.net';
 
 /**
  * The endpoints to use: the built-in ones, with the advanced settings of the
@@ -61,11 +51,7 @@ export function oauthBase(endpoints) {
   return `${endpoints.oktaUrl}/oauth2${server}`;
 }
 
-/** The URL of one API path, `{account}` filled in. */
-export function apiPath(endpoints, name, accountId = '') {
-  const path = endpoints.paths[name];
-  if (!path) {
-    throw new Error(`Unknown MyFoncia endpoint "${name}"`);
-  }
-  return `${endpoints.apiUrl}${path.replace('{account}', encodeURIComponent(accountId))}`;
+/** The GraphQL endpoint. */
+export function graphqlUrl(endpoints) {
+  return `${endpoints.apiUrl}/graphql`;
 }

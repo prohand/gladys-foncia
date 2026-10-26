@@ -6,7 +6,7 @@ incidents, new documents and the next general assembly. It also adds scene
 triggers, scene actions and a dashboard widget.
 
 > Unofficial integration. Foncia publishes no API: the integration reads your
-> account the way the myfoncia.fr web site does. If Foncia changes its site,
+> account the way the my-foncia.fonciamillenium.net web site does. If Foncia changes its site,
 > the integration may stop working until it is updated.
 
 ## Requirements
@@ -21,7 +21,7 @@ triggers, scene actions and a dashboard widget.
 
 | Field               | What to enter                                                                       |
 | ------------------- | ----------------------------------------------------------------------------------- |
-| MyFoncia e-mail     | The e-mail you sign in with on myfoncia.fr.                                         |
+| MyFoncia e-mail     | The e-mail you sign in with on my-foncia.fonciamillenium.net.                       |
 | MyFoncia password   | Your password. Stored by Gladys as a secret, only sent to Foncia's sign-in page.    |
 | Sync interval (min) | How often MyFoncia is read. 60 by default, 15 minimum.                              |
 | Due reminder (days) | How many days before a due date the "Payment due soon" trigger fires. 7 by default. |
@@ -36,14 +36,14 @@ One Gladys device per MyFoncia account (one lot of a co-ownership, one rental),
 named `Foncia – <account>`. Create it from the **Discover** tab. Its features are
 read-only and keep their history:
 
-| Feature                         | Unit | Meaning                                             |
-| ------------------------------- | ---- | --------------------------------------------------- |
-| Account balance                 | €    | As shown by MyFoncia (negative: you owe money).     |
-| Next amount due                 | €    | Amount of the next call for funds or rent.          |
-| Days until the due date         | days | Negative once the date has passed.                  |
-| Open incidents                  | —    | Incidents and repairs not closed yet.               |
-| New documents                   | —    | Documents added since you last marked them as seen. |
-| Days until the general assembly | days | Next general assembly of the co-ownership.          |
+| Feature                         | Unit | Meaning                                                            |
+| ------------------------------- | ---- | ------------------------------------------------------------------ |
+| Account balance                 | €    | As shown by MyFoncia (negative: you owe money).                    |
+| Next amount due                 | €    | Amount of the next call for funds or rent.                         |
+| Days until the due date         | days | Negative once the date has passed.                                 |
+| Open incidents                  | —    | Requests to Foncia (repairs, incidents, questions) not closed yet. |
+| New documents                   | —    | Documents added since you last marked them as seen.                |
+| Days until the general assembly | days | Next general assembly of the co-ownership.                         |
 
 The badge of the device says **cloud**, or **unreachable** when the last sync failed.
 
@@ -83,7 +83,7 @@ settings, pick the account to show (empty = the first one).
 
 ## Privacy
 
-- The password is only sent to Foncia's sign-in page (`foncia.okta-emea.com`).
+- The password is only sent to Foncia's sign-in page (`login.my-foncia.fonciamillenium.net`).
   It is never written in the logs.
 - The access tokens stay in memory. The only file written is
   `/data/foncia-state.json`: the ids of the documents, incidents and meetings
@@ -91,28 +91,24 @@ settings, pick the account to show (empty = the first one).
 
 ## Troubleshooting
 
-| Message                                     | What to do                                                      |
-| ------------------------------------------- | --------------------------------------------------------------- |
-| MyFoncia refused the e-mail or the password | Check them by signing in on myfoncia.fr.                        |
-| asks for a second factor                    | Not supported: the account needs a code at each sign-in.        |
-| The MyFoncia account is locked              | Unlock it on myfoncia.fr, then press Test the connection.       |
-| The MyFoncia client id is missing           | See [Advanced settings](#advanced-settings).                    |
-| MyFoncia cannot be reached                  | Check the Internet access of Gladys.                            |
-| MyFoncia answered with an error             | Look at the integration logs; Foncia may have changed its site. |
+| Message                                     | What to do                                                                  |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| MyFoncia refused the e-mail or the password | Check them by signing in on my-foncia.fonciamillenium.net.                  |
+| asks for a second factor                    | Not supported: the account needs a code at each sign-in.                    |
+| The MyFoncia account is locked              | Unlock it on my-foncia.fonciamillenium.net, then press Test the connection. |
+| The MyFoncia client id is missing           | See [Advanced settings](#advanced-settings).                                |
+| MyFoncia cannot be reached                  | Check the Internet access of Gladys.                                        |
+| MyFoncia answered with an error             | Look at the integration logs; Foncia may have changed its site.             |
 
 ## Advanced settings
 
-The MyFoncia web app signs in with an Okta **client id** and reads an API whose
-address is not published. If the integration reports a missing client id, or an
-API error on every sync, you can read both values from your browser:
+The integration signs in and reads your account with the same settings as the
+MyFoncia web site: its Okta **client id** and the address of its **API**. Both
+are built in: leave the two fields empty.
 
-1. Open <https://myfoncia.fr> in a desktop browser and open the developer tools
-   (F12), **Network** tab.
-2. Sign in. Find the request to `authorize`: its `client_id` parameter is the
-   **Okta client id**.
-3. Once signed in, find a request carrying an `Authorization: Bearer` header:
-   the start of its address (`https://host`) is the **MyFoncia API URL**.
-
-Enter them in the advanced settings, save, then press **Test the connection**.
-Please also open an issue on the repository so that the default values can be
-updated for everyone.
+If one day Foncia changes them and every sync fails with an API error, read the
+new values in <https://my-foncia.fonciamillenium.net/config.js>: `clientId`
+under `oktaConfig` is the **Okta client id**, `url` under `graphql` is the
+**MyFoncia API URL**. Enter them in the advanced settings, save, then press
+**Test the connection**. Please also open an issue on the repository so that the
+built-in values can be updated for everyone.

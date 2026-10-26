@@ -14,11 +14,13 @@ Requires Gladys 5.3+. Cloud only (`transports: ["cloud"]`). Scene triggers (new 
 updated, payment due, general assembly announced), scene actions (sync now, mark documents seen)
 and a "Foncia account" widget.
 
-**Foncia publishes no API.** Sign-in is the standard Okta flow of the web app
-(`foncia.okta-emea.com`, confirmed by its public OpenID discovery document). The Okta client id
-and the API host and paths are NOT confirmed against a live account: they live in
-`src/foncia/endpoints.js` only, and the client id / API URL can be overridden from the
-"Advanced settings" of the configuration.
+**Foncia publishes no API.** Everything is taken from the MyFoncia web app
+(`https://my-foncia.fonciamillenium.net/config.js` and its GraphQL operations): Okta sign-in on
+`login.my-foncia.fonciamillenium.net` (authorization server `millenium`, the web app's client id),
+then GraphQL on `customer-portal-gateway.prod.fonciamillenium.net/graphql`. Addresses live in
+`src/foncia/endpoints.js`, operations in `src/foncia/queries.js` (trimmed copies of the web app's,
+same operation names). The client id and the API URL can be overridden from the "Advanced
+settings" of the configuration.
 
 ## Commands
 
@@ -44,9 +46,10 @@ Release).
 index.js                    SDK wiring only: handlers registered before connect()
 src/config.js               DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
 src/i18n.js                 LANGUAGES (en, fr, de, es) + pick / localize
-src/foncia/endpoints.js     every URL and path of MyFoncia (the one place to fix when Foncia moves)
-src/foncia/client.js        Okta sign-in (authn -> authorize + PKCE -> token), refresh, GET helpers
-src/foncia/normalize.js     tolerant JSON -> account / summary / document / incident / meeting
+src/foncia/endpoints.js     every MyFoncia address (the one place to fix when Foncia moves)
+src/foncia/queries.js       the GraphQL operations (copies of the web app's)
+src/foncia/client.js        Okta sign-in (authn -> authorize + PKCE -> token), refresh, GraphQL
+src/foncia/normalize.js     tolerant GraphQL -> account / accounting / document / ticket / meeting
 src/foncia/errors.js        FonciaError codes + their message in the four languages
 src/foncia/store.js         memory of what was already seen, /data/foncia-state.json
 src/foncia/sync.js          analyzeAccount (pure diff -> snapshot + events) + the sync service

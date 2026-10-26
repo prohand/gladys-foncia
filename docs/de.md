@@ -6,7 +6,7 @@ Betrag, offene Vorfälle, neue Dokumente und die nächste Eigentümerversammlung
 Dazu kommen Szenenauslöser, Szenenaktionen und ein Dashboard-Widget.
 
 > Inoffizielle Integration. Foncia veröffentlicht keine API: Die Integration
-> liest dein Konto so, wie es die Website myfoncia.fr tut. Ändert Foncia seine
+> liest dein Konto so, wie es die Website my-foncia.fonciamillenium.net tut. Ändert Foncia seine
 > Website, kann die Integration bis zu einem Update nicht mehr funktionieren.
 
 ## Voraussetzungen
@@ -21,7 +21,7 @@ Dazu kommen Szenenauslöser, Szenenaktionen und ein Dashboard-Widget.
 
 | Feld                             | Was eingeben                                                                                      |
 | -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| MyFoncia-E-Mail                  | Die E-Mail-Adresse, mit der du dich auf myfoncia.fr anmeldest.                                    |
+| MyFoncia-E-Mail                  | Die E-Mail-Adresse, mit der du dich auf my-foncia.fonciamillenium.net anmeldest.                  |
 | MyFoncia-Passwort                | Dein Passwort. Von Gladys als Geheimnis gespeichert, nur an die Anmeldeseite von Foncia gesendet. |
 | Synchronisierungsintervall (min) | Wie oft MyFoncia gelesen wird. Standard 60, mindestens 15.                                        |
 | Fälligkeitserinnerung (Tage)     | Wie viele Tage vor einer Fälligkeit der Auslöser „Zahlung bald fällig“ auslöst. Standard 7.       |
@@ -36,14 +36,14 @@ Ein Gladys-Gerät pro MyFoncia-Konto (eine Wohnung einer Eigentümergemeinschaft
 eine Mietwohnung), mit dem Namen `Foncia – <Konto>`. Lege es im Tab **Entdecken**
 an. Seine Funktionen sind schreibgeschützt und behalten ihren Verlauf:
 
-| Funktion                           | Einheit | Bedeutung                                                                  |
-| ---------------------------------- | ------- | -------------------------------------------------------------------------- |
-| Kontosaldo                         | €       | Wie von MyFoncia angezeigt (negativ: du schuldest Geld).                   |
-| Nächster fälliger Betrag           | €       | Betrag des nächsten Zahlungsaufrufs oder der nächsten Miete.               |
-| Tage bis zur Fälligkeit            | Tage    | Negativ, sobald das Datum vorbei ist.                                      |
-| Offene Vorfälle                    | —       | Noch nicht abgeschlossene Vorfälle und Reparaturen.                        |
-| Neue Dokumente                     | —       | Dokumente, die seit der letzten Markierung als gesehen hinzugekommen sind. |
-| Tage bis zur Eigentümerversammlung | Tage    | Nächste Versammlung der Eigentümergemeinschaft.                            |
+| Funktion                           | Einheit | Bedeutung                                                                     |
+| ---------------------------------- | ------- | ----------------------------------------------------------------------------- |
+| Kontosaldo                         | €       | Wie von MyFoncia angezeigt (negativ: du schuldest Geld).                      |
+| Nächster fälliger Betrag           | €       | Betrag des nächsten Zahlungsaufrufs oder der nächsten Miete.                  |
+| Tage bis zur Fälligkeit            | Tage    | Negativ, sobald das Datum vorbei ist.                                         |
+| Offene Vorfälle                    | —       | Noch nicht abgeschlossene Anfragen an Foncia (Reparaturen, Vorfälle, Fragen). |
+| Neue Dokumente                     | —       | Dokumente, die seit der letzten Markierung als gesehen hinzugekommen sind.    |
+| Tage bis zur Eigentümerversammlung | Tage    | Nächste Versammlung der Eigentümergemeinschaft.                               |
 
 Das Abzeichen des Geräts zeigt **Cloud**, oder **nicht erreichbar**, wenn die
 letzte Synchronisierung fehlgeschlagen ist.
@@ -88,7 +88,7 @@ anzuzeigende Konto (leer = das erste).
 ## Datenschutz
 
 - Das Passwort wird nur an die Anmeldeseite von Foncia
-  (`foncia.okta-emea.com`) gesendet. Es wird nie in die Logs geschrieben.
+  (`login.my-foncia.fonciamillenium.net`) gesendet. Es wird nie in die Logs geschrieben.
 - Die Zugriffstoken bleiben im Speicher. Die einzige geschriebene Datei ist
   `/data/foncia-state.json`: die IDs der bereits gesehenen Dokumente, Vorfälle
   und Versammlungen, damit nach einem Neustart kein Auslöser doppelt auslöst.
@@ -97,28 +97,23 @@ anzuzeigende Konto (leer = das erste).
 
 | Meldung                                                     | Was tun                                                                            |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| MyFoncia hat die E-Mail-Adresse oder das Passwort abgelehnt | Prüfe sie mit einer Anmeldung auf myfoncia.fr.                                     |
+| MyFoncia hat die E-Mail-Adresse oder das Passwort abgelehnt | Prüfe sie mit einer Anmeldung auf my-foncia.fonciamillenium.net.                   |
 | verlangt einen zweiten Faktor                               | Nicht unterstützt: Das Konto verlangt bei jeder Anmeldung einen Code.              |
-| Das MyFoncia-Konto ist gesperrt                             | Entsperre es auf myfoncia.fr und drücke dann Verbindung testen.                    |
+| Das MyFoncia-Konto ist gesperrt                             | Entsperre es auf my-foncia.fonciamillenium.net und drücke dann Verbindung testen.  |
 | Die MyFoncia-Client-ID fehlt                                | Siehe [Erweiterte Einstellungen](#erweiterte-einstellungen).                       |
 | MyFoncia ist nicht erreichbar                               | Prüfe den Internetzugang von Gladys.                                               |
 | MyFoncia hat mit einem Fehler geantwortet                   | Sieh dir die Logs der Integration an; Foncia hat seine Website eventuell geändert. |
 
 ## Erweiterte Einstellungen
 
-Die MyFoncia-Web-App meldet sich mit einer Okta-**Client-ID** an und liest eine
-API, deren Adresse nicht veröffentlicht ist. Meldet die Integration eine
-fehlende Client-ID oder bei jeder Synchronisierung einen API-Fehler, kannst du
-beide Werte in deinem Browser ablesen:
+Die Integration meldet sich mit denselben Einstellungen an wie die
+MyFoncia-Website: deren Okta-**Client-ID** und die Adresse ihrer **API**. Beide
+sind eingebaut: Lass die zwei Felder leer.
 
-1. Öffne <https://myfoncia.fr> in einem Desktop-Browser und öffne die
-   Entwicklerwerkzeuge (F12), Tab **Netzwerk**.
-2. Melde dich an. Suche die Anfrage an `authorize`: Ihr Parameter `client_id`
-   ist die **Okta-Client-ID**.
-3. Suche nach der Anmeldung eine Anfrage mit dem Header
-   `Authorization: Bearer`: Der Anfang ihrer Adresse (`https://host`) ist die
-   **URL der MyFoncia-API**.
-
-Trage sie in die erweiterten Einstellungen ein, speichere und drücke
-**Verbindung testen**. Eröffne bitte auch ein Issue im Repository, damit die
-Standardwerte für alle aktualisiert werden.
+Ändert Foncia sie eines Tages und schlägt jede Synchronisierung mit einem
+API-Fehler fehl, lies die neuen Werte in
+<https://my-foncia.fonciamillenium.net/config.js>: `clientId` unter `oktaConfig`
+ist die **Okta-Client-ID**, `url` unter `graphql` ist die **URL der
+MyFoncia-API**. Trage sie in die erweiterten Einstellungen ein, speichere und
+drücke **Verbindung testen**. Eröffne bitte auch ein Issue im Repository, damit
+die eingebauten Werte für alle aktualisiert werden.
