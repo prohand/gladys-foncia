@@ -1,0 +1,762 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "name": "Foncia",
+  "description": {
+    "en": "Your MyFoncia account in Gladys: balance, calls for funds, documents and incidents.",
+    "fr": "Votre compte MyFoncia dans Gladys : solde, appels de fonds, documents et incidents.",
+    "de": "Dein MyFoncia-Konto in Gladys: Saldo, Zahlungsaufrufe, Dokumente und Vorfälle.",
+    "es": "Su cuenta MyFoncia en Gladys: saldo, derramas, documentos e incidencias."
+  },
+  "version": "1.0.0",
+  "docker_image": "ghcr.io/prohand/gladys-foncia:1.0.0",
+  "gladys_version": ">=5.3.0",
+  "cover_image": "https://raw.githubusercontent.com/prohand/gladys-foncia/main/cover.png",
+  "categories": ["services", "notifications"],
+  "keywords": [
+    "myfoncia",
+    "syndic",
+    "copropriété",
+    "gestion locative",
+    "appel de fonds",
+    "charges",
+    "locataire",
+    "propriétaire",
+    "assemblée générale",
+    "property management"
+  ],
+  "transports": ["cloud"],
+  "config_schema": [
+    {
+      "key": "intro",
+      "type": "section",
+      "label": {
+        "en": "Getting started",
+        "fr": "Pour commencer",
+        "de": "Erste Schritte",
+        "es": "Primeros pasos"
+      },
+      "description": {
+        "en": "Enter the e-mail and password you use on myfoncia.fr. The integration reads your account every hour: one Gladys device per account, with its balance, the next amount due, the open incidents and the new documents. Accounts protected by a second factor (SMS, app) are not supported.",
+        "fr": "Saisissez l'e-mail et le mot de passe que vous utilisez sur myfoncia.fr. L'intégration lit votre compte toutes les heures : un appareil Gladys par compte, avec son solde, la prochaine somme à payer, les incidents ouverts et les nouveaux documents. Les comptes protégés par un second facteur (SMS, application) ne sont pas pris en charge.",
+        "de": "Gib die E-Mail-Adresse und das Passwort ein, die du auf myfoncia.fr verwendest. Die Integration liest dein Konto stündlich: ein Gladys-Gerät pro Konto, mit Saldo, nächstem fälligem Betrag, offenen Vorfällen und neuen Dokumenten. Konten mit zweitem Faktor (SMS, App) werden nicht unterstützt.",
+        "es": "Introduzca el correo y la contraseña que usa en myfoncia.fr. La integración lee su cuenta cada hora: un dispositivo de Gladys por cuenta, con su saldo, el próximo importe a pagar, las incidencias abiertas y los documentos nuevos. Las cuentas protegidas con un segundo factor (SMS, app) no son compatibles."
+      },
+      "links": [
+        {
+          "url": "https://myfoncia.fr",
+          "label": {
+            "en": "MyFoncia",
+            "fr": "MyFoncia",
+            "de": "MyFoncia",
+            "es": "MyFoncia"
+          }
+        },
+        {
+          "url": "https://github.com/prohand/gladys-foncia/blob/main/docs/en.md",
+          "label": {
+            "en": "Integration documentation",
+            "fr": "Documentation de l'intégration",
+            "de": "Dokumentation der Integration",
+            "es": "Documentación de la integración"
+          }
+        }
+      ]
+    },
+    {
+      "key": "username",
+      "type": "string",
+      "label": {
+        "en": "MyFoncia e-mail",
+        "fr": "E-mail MyFoncia",
+        "de": "MyFoncia-E-Mail",
+        "es": "Correo de MyFoncia"
+      },
+      "placeholder": {
+        "en": "e.g. name@example.com",
+        "fr": "ex. nom@exemple.fr",
+        "de": "z. B. name@beispiel.de",
+        "es": "p. ej. nombre@ejemplo.es"
+      },
+      "required": true
+    },
+    {
+      "key": "password",
+      "type": "secret",
+      "label": {
+        "en": "MyFoncia password",
+        "fr": "Mot de passe MyFoncia",
+        "de": "MyFoncia-Passwort",
+        "es": "Contraseña de MyFoncia"
+      },
+      "required": true
+    },
+    {
+      "key": "sync_interval",
+      "type": "number",
+      "label": {
+        "en": "Sync interval (min)",
+        "fr": "Intervalle de synchro (min)",
+        "de": "Synchronisierungsintervall (min)",
+        "es": "Intervalo de sincronización (min)"
+      },
+      "description": {
+        "en": "How often MyFoncia is read, in minutes (15 minimum).",
+        "fr": "Fréquence de lecture de MyFoncia, en minutes (15 minimum).",
+        "de": "Wie oft MyFoncia gelesen wird, in Minuten (mindestens 15).",
+        "es": "Cada cuánto se lee MyFoncia, en minutos (mínimo 15)."
+      },
+      "required": false,
+      "default": 60,
+      "min": 15,
+      "max": 1440
+    },
+    {
+      "key": "due_reminder_days",
+      "type": "number",
+      "label": {
+        "en": "Due reminder (days)",
+        "fr": "Rappel d'échéance (jours)",
+        "de": "Fälligkeitserinnerung (Tage)",
+        "es": "Aviso de vencimiento (días)"
+      },
+      "description": {
+        "en": "The \"Payment due\" scene trigger fires this many days before a due date.",
+        "fr": "Le déclencheur de scène « Échéance à payer » se déclenche ce nombre de jours avant l'échéance.",
+        "de": "Der Szenenauslöser „Zahlung fällig“ löst so viele Tage vor der Fälligkeit aus.",
+        "es": "El disparador de escena «Pago pendiente» se activa estos días antes del vencimiento."
+      },
+      "required": false,
+      "default": 7,
+      "min": 0,
+      "max": 60
+    },
+    {
+      "key": "advanced",
+      "type": "section",
+      "label": {
+        "en": "Advanced settings",
+        "fr": "Réglages avancés",
+        "de": "Erweiterte Einstellungen",
+        "es": "Ajustes avanzados"
+      },
+      "description": {
+        "en": "Foncia publishes no API: leave these fields empty unless the documentation or a support request tells you what to put in them.",
+        "fr": "Foncia ne publie pas d'API : laissez ces champs vides, sauf si la documentation ou le support vous indique quoi y mettre.",
+        "de": "Foncia veröffentlicht keine API: Lass diese Felder leer, es sei denn, die Dokumentation oder der Support sagt dir, was hinein soll.",
+        "es": "Foncia no publica ninguna API: deje estos campos vacíos salvo que la documentación o el soporte le indique qué poner."
+      }
+    },
+    {
+      "key": "okta_client_id",
+      "type": "string",
+      "label": {
+        "en": "Okta client id",
+        "fr": "Identifiant client Okta",
+        "de": "Okta-Client-ID",
+        "es": "ID de cliente Okta"
+      },
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "api_url",
+      "type": "string",
+      "label": {
+        "en": "MyFoncia API URL",
+        "fr": "URL de l'API MyFoncia",
+        "de": "URL der MyFoncia-API",
+        "es": "URL de la API de MyFoncia"
+      },
+      "placeholder": {
+        "en": "e.g. https://api.example.com",
+        "fr": "ex. https://api.exemple.fr",
+        "de": "z. B. https://api.beispiel.de",
+        "es": "p. ej. https://api.ejemplo.es"
+      },
+      "required": false,
+      "default": ""
+    }
+  ],
+  "actions": [
+    {
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "timeout_seconds": 60
+    },
+    {
+      "key": "sync_now",
+      "label": {
+        "en": "Sync now",
+        "fr": "Synchroniser maintenant",
+        "de": "Jetzt synchronisieren",
+        "es": "Sincronizar ahora"
+      },
+      "timeout_seconds": 120
+    }
+  ],
+  "widgets": [
+    {
+      "key": "foncia_account",
+      "label": {
+        "en": "Foncia account",
+        "fr": "Compte Foncia",
+        "de": "Foncia-Konto",
+        "es": "Cuenta Foncia"
+      },
+      "description": {
+        "en": "Balance, amount due, incidents and the latest MyFoncia documents.",
+        "fr": "Solde, somme à payer, incidents et derniers documents MyFoncia.",
+        "de": "Saldo, fälliger Betrag, Vorfälle und die neuesten MyFoncia-Dokumente.",
+        "es": "Saldo, importe debido, incidencias y últimos documentos de MyFoncia."
+      },
+      "icon": "home",
+      "settings": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false,
+          "description": {
+            "en": "Account shown; empty = the first one.",
+            "fr": "Compte affiché ; vide = le premier.",
+            "de": "Angezeigtes Konto; leer = das erste.",
+            "es": "Cuenta mostrada; vacío = la primera."
+          }
+        }
+      ],
+      "action_timeout_seconds": 120
+    }
+  ],
+  "scene_triggers": [
+    {
+      "key": "new_document",
+      "label": {
+        "en": "New Foncia document",
+        "fr": "Nouveau document Foncia",
+        "de": "Neues Foncia-Dokument",
+        "es": "Nuevo documento de Foncia"
+      },
+      "description": {
+        "en": "A document appeared on MyFoncia: call for funds, general assembly, statement, invoice…",
+        "fr": "Un document est apparu sur MyFoncia : appel de fonds, AG, relevé de charges, facture…",
+        "de": "Ein Dokument ist auf MyFoncia erschienen: Zahlungsaufruf, Versammlung, Abrechnung, Rechnung…",
+        "es": "Ha aparecido un documento en MyFoncia: derrama, junta, extracto, factura…"
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false
+        },
+        {
+          "key": "category",
+          "type": "multi_select",
+          "label": {
+            "en": "Document type",
+            "fr": "Type de document",
+            "de": "Dokumenttyp",
+            "es": "Tipo de documento"
+          },
+          "options": [
+            {
+              "value": "call_for_funds",
+              "label": {
+                "en": "Call for funds",
+                "fr": "Appel de fonds",
+                "de": "Zahlungsaufruf",
+                "es": "Derrama / cuota"
+              }
+            },
+            {
+              "value": "meeting",
+              "label": {
+                "en": "General assembly",
+                "fr": "Assemblée générale",
+                "de": "Eigentümerversammlung",
+                "es": "Junta de propietarios"
+              }
+            },
+            {
+              "value": "statement",
+              "label": {
+                "en": "Statement of charges",
+                "fr": "Relevé / décompte de charges",
+                "de": "Nebenkostenabrechnung",
+                "es": "Extracto de gastos"
+              }
+            },
+            {
+              "value": "invoice",
+              "label": {
+                "en": "Invoice or receipt",
+                "fr": "Facture ou quittance",
+                "de": "Rechnung oder Quittung",
+                "es": "Factura o recibo"
+              }
+            },
+            {
+              "value": "other",
+              "label": {
+                "en": "Other document",
+                "fr": "Autre document",
+                "de": "Anderes Dokument",
+                "es": "Otro documento"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "account",
+          "type": "string",
+          "label": {
+            "en": "Account name",
+            "fr": "Nom du compte",
+            "de": "Kontoname",
+            "es": "Nombre de la cuenta"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Document title",
+            "fr": "Titre du document",
+            "de": "Dokumenttitel",
+            "es": "Título del documento"
+          }
+        },
+        {
+          "key": "date",
+          "type": "string",
+          "label": {
+            "en": "Document date",
+            "fr": "Date du document",
+            "de": "Dokumentdatum",
+            "es": "Fecha del documento"
+          }
+        }
+      ]
+    },
+    {
+      "key": "incident_updated",
+      "label": {
+        "en": "Foncia incident updated",
+        "fr": "Incident Foncia mis à jour",
+        "de": "Foncia-Vorfall aktualisiert",
+        "es": "Incidencia de Foncia actualizada"
+      },
+      "description": {
+        "en": "An incident or a repair was opened, or its status changed.",
+        "fr": "Un incident ou une intervention a été ouvert, ou son statut a changé.",
+        "de": "Ein Vorfall oder eine Reparatur wurde eröffnet oder ihr Status hat sich geändert.",
+        "es": "Se ha abierto una incidencia o una reparación, o su estado ha cambiado."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false
+        },
+        {
+          "key": "status",
+          "type": "multi_select",
+          "label": {
+            "en": "New status",
+            "fr": "Nouveau statut",
+            "de": "Neuer Status",
+            "es": "Nuevo estado"
+          },
+          "options": [
+            {
+              "value": "open",
+              "label": {
+                "en": "Open",
+                "fr": "Ouvert",
+                "de": "Offen",
+                "es": "Abierta"
+              }
+            },
+            {
+              "value": "in_progress",
+              "label": {
+                "en": "In progress",
+                "fr": "En cours",
+                "de": "In Bearbeitung",
+                "es": "En curso"
+              }
+            },
+            {
+              "value": "closed",
+              "label": {
+                "en": "Closed",
+                "fr": "Clôturé",
+                "de": "Abgeschlossen",
+                "es": "Cerrada"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "account",
+          "type": "string",
+          "label": {
+            "en": "Account name",
+            "fr": "Nom du compte",
+            "de": "Kontoname",
+            "es": "Nombre de la cuenta"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Incident",
+            "fr": "Incident",
+            "de": "Vorfall",
+            "es": "Incidencia"
+          }
+        },
+        {
+          "key": "previous_status",
+          "type": "string",
+          "label": {
+            "en": "Previous status",
+            "fr": "Statut précédent",
+            "de": "Vorheriger Status",
+            "es": "Estado anterior"
+          }
+        }
+      ]
+    },
+    {
+      "key": "payment_due",
+      "label": {
+        "en": "Payment due soon",
+        "fr": "Échéance à payer",
+        "de": "Zahlung bald fällig",
+        "es": "Pago pendiente"
+      },
+      "description": {
+        "en": "An amount is due within the reminder delay of the configuration.",
+        "fr": "Une somme arrive à échéance dans le délai de rappel de la configuration.",
+        "de": "Ein Betrag wird innerhalb der eingestellten Erinnerungsfrist fällig.",
+        "es": "Un importe vence dentro del plazo de aviso de la configuración."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false
+        }
+      ],
+      "variables": [
+        {
+          "key": "account",
+          "type": "string",
+          "label": {
+            "en": "Account name",
+            "fr": "Nom du compte",
+            "de": "Kontoname",
+            "es": "Nombre de la cuenta"
+          }
+        },
+        {
+          "key": "amount",
+          "type": "number",
+          "label": {
+            "en": "Amount (€)",
+            "fr": "Montant (€)",
+            "de": "Betrag (€)",
+            "es": "Importe (€)"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date",
+            "fr": "Date d'échéance",
+            "de": "Fälligkeitsdatum",
+            "es": "Fecha de vencimiento"
+          }
+        },
+        {
+          "key": "days_left",
+          "type": "number",
+          "label": {
+            "en": "Days left",
+            "fr": "Jours restants",
+            "de": "Verbleibende Tage",
+            "es": "Días restantes"
+          }
+        }
+      ]
+    },
+    {
+      "key": "meeting_scheduled",
+      "label": {
+        "en": "General assembly announced",
+        "fr": "AG annoncée",
+        "de": "Versammlung angekündigt",
+        "es": "Junta convocada"
+      },
+      "description": {
+        "en": "A new general assembly of the co-ownership is planned.",
+        "fr": "Une nouvelle assemblée générale de copropriété est prévue.",
+        "de": "Eine neue Eigentümerversammlung ist geplant.",
+        "es": "Se ha previsto una nueva junta de propietarios."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false
+        }
+      ],
+      "variables": [
+        {
+          "key": "account",
+          "type": "string",
+          "label": {
+            "en": "Account name",
+            "fr": "Nom du compte",
+            "de": "Kontoname",
+            "es": "Nombre de la cuenta"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Meeting",
+            "fr": "Assemblée",
+            "de": "Versammlung",
+            "es": "Junta"
+          }
+        },
+        {
+          "key": "date",
+          "type": "string",
+          "label": {
+            "en": "Date",
+            "fr": "Date",
+            "de": "Datum",
+            "es": "Fecha"
+          }
+        },
+        {
+          "key": "days_left",
+          "type": "number",
+          "label": {
+            "en": "Days left",
+            "fr": "Jours restants",
+            "de": "Verbleibende Tage",
+            "es": "Días restantes"
+          }
+        }
+      ]
+    }
+  ],
+  "scene_actions": [
+    {
+      "key": "sync_now",
+      "label": {
+        "en": "Sync Foncia",
+        "fr": "Synchroniser Foncia",
+        "de": "Foncia synchronisieren",
+        "es": "Sincronizar Foncia"
+      },
+      "description": {
+        "en": "Read MyFoncia now and pass the figures of one account to the next actions.",
+        "fr": "Lit MyFoncia maintenant et transmet les chiffres d'un compte aux actions suivantes.",
+        "de": "Liest MyFoncia jetzt und gibt die Zahlen eines Kontos an die nächsten Aktionen weiter.",
+        "es": "Lee MyFoncia ahora y pasa las cifras de una cuenta a las acciones siguientes."
+      },
+      "timeout_seconds": 120,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false,
+          "description": {
+            "en": "Empty = the first account.",
+            "fr": "Vide = le premier compte.",
+            "de": "Leer = das erste Konto.",
+            "es": "Vacío = la primera cuenta."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "success",
+          "type": "boolean",
+          "label": {
+            "en": "Sync succeeded",
+            "fr": "Synchro réussie",
+            "de": "Synchronisierung erfolgreich",
+            "es": "Sincronización correcta"
+          }
+        },
+        {
+          "key": "account",
+          "type": "string",
+          "label": {
+            "en": "Account name",
+            "fr": "Nom du compte",
+            "de": "Kontoname",
+            "es": "Nombre de la cuenta"
+          }
+        },
+        {
+          "key": "balance",
+          "type": "number",
+          "label": {
+            "en": "Balance (€)",
+            "fr": "Solde (€)",
+            "de": "Saldo (€)",
+            "es": "Saldo (€)"
+          }
+        },
+        {
+          "key": "amount_due",
+          "type": "number",
+          "label": {
+            "en": "Amount due (€)",
+            "fr": "Somme à payer (€)",
+            "de": "Fälliger Betrag (€)",
+            "es": "Importe debido (€)"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date",
+            "fr": "Date d'échéance",
+            "de": "Fälligkeitsdatum",
+            "es": "Fecha de vencimiento"
+          }
+        },
+        {
+          "key": "open_incidents",
+          "type": "number",
+          "label": {
+            "en": "Open incidents",
+            "fr": "Incidents ouverts",
+            "de": "Offene Vorfälle",
+            "es": "Incidencias abiertas"
+          }
+        },
+        {
+          "key": "new_documents",
+          "type": "number",
+          "label": {
+            "en": "New documents",
+            "fr": "Nouveaux documents",
+            "de": "Neue Dokumente",
+            "es": "Documentos nuevos"
+          }
+        }
+      ]
+    },
+    {
+      "key": "mark_documents_seen",
+      "label": {
+        "en": "Mark Foncia documents as seen",
+        "fr": "Marquer les documents Foncia comme vus",
+        "de": "Foncia-Dokumente als gesehen markieren",
+        "es": "Marcar documentos de Foncia como vistos"
+      },
+      "description": {
+        "en": "Set the \"new documents\" counter back to 0.",
+        "fr": "Remet à 0 le compteur de nouveaux documents.",
+        "de": "Setzt den Zähler der neuen Dokumente auf 0 zurück.",
+        "es": "Pone a 0 el contador de documentos nuevos."
+      },
+      "timeout_seconds": 15,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Foncia account",
+            "fr": "Compte Foncia",
+            "de": "Foncia-Konto",
+            "es": "Cuenta Foncia"
+          },
+          "required": false,
+          "description": {
+            "en": "Empty = every account.",
+            "fr": "Vide = tous les comptes.",
+            "de": "Leer = alle Konten.",
+            "es": "Vacío = todas las cuentas."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "cleared",
+          "type": "number",
+          "label": {
+            "en": "Documents marked",
+            "fr": "Documents marqués",
+            "de": "Markierte Dokumente",
+            "es": "Documentos marcados"
+          }
+        }
+      ]
+    }
+  ]
+}
