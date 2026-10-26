@@ -33,9 +33,9 @@ const DATA = {
   getDashboardAccountingBalance: () => ({
     account: {
       accounting: {
-        currentBalance: { value: -12.5, currency: 'EUR' },
+        currentBalance: { value: -1250, currency: 'EUR' },
         lines: edges([
-          { id: 'L1', dueDate: '2026-11-01', amount: { __typename: 'Debit', value: 450 } },
+          { id: 'L1', dueDate: '2026-11-01', amount: { __typename: 'Debit', value: 45000 } },
         ]),
       },
     },

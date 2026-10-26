@@ -17,6 +17,7 @@ import {
   normalizeList,
   normalizeMeeting,
   normalizeTicket,
+  fromAmount,
   toAmount,
   toDate,
 } from '../src/foncia/normalize.js';
@@ -26,9 +27,17 @@ test('amounts are read as numbers, French strings or { value } objects', () => {
   assert.equal(toAmount('-1 234,56 €'), -1234.56);
   assert.equal(toAmount('1.234,5'), 1234.5);
   assert.equal(toAmount('1 234,00 EUR'), 1234);
-  assert.equal(toAmount({ value: 45.1, currency: 'EUR' }), 45.1);
+  assert.equal(toAmount({ value: 4510, currency: 'EUR' }), 45.1, 'an Amount is in cents');
   assert.equal(toAmount('n/a'), null);
   assert.equal(toAmount(null), null);
+});
+
+test('MyFoncia amounts are cents, as the web app reads them', () => {
+  assert.equal(fromAmount({ value: 62282, currency: 'EUR' }), 622.82);
+  assert.equal(fromAmount({ value: -4505, currency: 'EUR' }), -45.05);
+  assert.equal(fromAmount({ value: 0, currency: 'EUR' }), 0);
+  assert.equal(fromAmount({ value: 12.5 }), null, 'not an integer: not an amount the app shows');
+  assert.equal(fromAmount(null), null);
 });
 
 test('dates become YYYY-MM-DD', () => {
@@ -81,14 +90,14 @@ test('accounting: balance, and the earliest debit still to come as the next due'
     node: { id, label: `L${id}`, dueDate, amount: { __typename: typename, value } },
   });
   const accounting = {
-    currentBalance: { value: -450.5, currency: 'EUR' },
+    currentBalance: { value: -45050, currency: 'EUR' }, // cents
     lines: {
       edges: [
-        line(1, 'Debit', 450.5, '2026-10-01'), // past
-        line(2, 'Credit', 300, '2026-10-05'), // a payment, not a due
-        line(5, 'Credit', 120, '2026-09-05'), // an older payment
-        line(3, 'Debit', 470, '2027-01-01'),
-        line(4, 'Debit', 460, '2026-11-01'),
+        line(1, 'Debit', 45050, '2026-10-01'), // past
+        line(2, 'Credit', 30000, '2026-10-05'), // a payment, not a due
+        line(5, 'Credit', 12000, '2026-09-05'), // an older payment
+        line(3, 'Debit', 47000, '2027-01-01'),
+        line(4, 'Debit', 46000, '2026-11-01'),
       ],
     },
   };

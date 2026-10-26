@@ -76,6 +76,8 @@ test/                       node --test, SDK fake Gladys + test/helpers/fakeFonc
   an error message (`test/client.test.js` checks it).
 - **The container rootfs is read-only**: write only under `/data`.
 - **Every feature declares `min`/`max`** (NOT NULL in Gladys).
+- **MyFoncia amounts are cents**: an `Amount` (`{ value, currency }`) is read with `fromAmount`
+  (`value / 100`, integers only), exactly as the web app formats it.
 
 ### Manifest
 

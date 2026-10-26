@@ -90,7 +90,7 @@ export function toAmount(value) {
     return Number.isFinite(value) ? round2(value) : null;
   }
   if (typeof value === 'object') {
-    return toAmount(first(value, 'value', 'amount'));
+    return fromAmount(value);
   }
   const text = String(value)
     .replace(/[\s\u00a0\u202f\u20ac]|EUR/gi, '')
@@ -99,6 +99,16 @@ export function toAmount(value) {
   const normalized = text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text;
   const number = Number(normalized);
   return normalized !== '' && Number.isFinite(number) ? round2(number) : null;
+}
+
+/**
+ * A MyFoncia `Amount` (`{ value, currency }`) in euros. The API counts in
+ * CENTS: the web app itself shows `value / 100` (an integer value only, or
+ * nothing). `null` when unreadable.
+ */
+export function fromAmount(amount) {
+  const value = amount?.value;
+  return Number.isInteger(value) ? round2(value / 100) : null;
 }
 
 /** An ISO date (YYYY-MM-DD) from an ISO string, a French "dd/mm/yyyy" or a timestamp. */
@@ -159,7 +169,7 @@ export function normalizeAccounting(raw, today) {
   const dues = lines
     .filter((line) => line.amount?.__typename !== 'Credit')
     .map((line) => ({
-      amount: toAmount(line.amount),
+      amount: fromAmount(line.amount),
       date: toDate(line.dueDate),
       label: line.label ?? null,
     }))
@@ -168,13 +178,13 @@ export function normalizeAccounting(raw, today) {
   const payments = lines
     .filter((line) => line.amount?.__typename === 'Credit')
     .map((line) => ({
-      amount: toAmount(line.amount),
+      amount: fromAmount(line.amount),
       date: toDate(line.valueDate ?? line.dueDate),
     }))
     .filter((payment) => payment.amount !== null && payment.date)
     .sort((a, b) => b.date.localeCompare(a.date));
   return {
-    balance: toAmount(raw?.currentBalance),
+    balance: fromAmount(raw?.currentBalance),
     due: dues[0] ?? null,
     lastPayment: payments[0] ?? null,
   };

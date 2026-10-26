@@ -39,5 +39,7 @@ the notes of the version's GitHub Release.
 - Requests shown as "Traitée" or "Clôturée" on MyFoncia, or finished or
   cancelled, no longer count as open.
 - A document space MyFoncia refuses no longer hides the documents of the others.
+- Amounts are read in euros: MyFoncia sends cents, so the balance, the amount
+  due and the last payment were 100 times too high.
 
 [Unreleased]: https://github.com/prohand/gladys-foncia/commits/main
