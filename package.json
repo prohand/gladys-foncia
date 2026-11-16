@@ -1,6 +1,6 @@
 {
   "name": "gladys-foncia",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "description": "Gladys Assistant external integration for MyFoncia (Foncia property management): balance, calls for funds, documents and incidents.",
   "type": "module",
