@@ -212,3 +212,12 @@ test('the user documentation exists in the four languages', async () => {
     assert.ok(text.length >= 300, `docs/${language}.md is too short`);
   }
 });
+
+test('the catalog countries: France, which needs Gladys >= 5.3.0', () => {
+  // MyFoncia (fonciamillenium.net) is the customer portal of Foncia in France.
+  // Declared, the catalog of an instance located elsewhere hides the
+  // integration from its browse views (the search still finds it).
+  assert.deepEqual(manifest.countries, ['FR']);
+  const [major, minor] = manifest.gladys_version.replace(/^>=/, '').split('.').map(Number);
+  assert.ok(major > 5 || (major === 5 && minor >= 3), 'countries needs Gladys 5.3.0');
+});
